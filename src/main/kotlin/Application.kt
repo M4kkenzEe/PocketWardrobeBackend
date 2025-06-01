@@ -3,6 +3,7 @@ package com.example
 import com.example.auth.di.authModule
 import com.example.routes.configureRouting
 import com.example.routes.configureSecurity
+import com.example.routes.configureSerialization
 import io.ktor.server.application.*
 import org.koin.core.context.startKoin
 import org.koin.logger.SLF4JLogger
