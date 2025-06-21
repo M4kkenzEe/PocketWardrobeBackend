@@ -31,6 +31,14 @@ dependencies {
     implementation(libs.jbcrypt)
 
     implementation(libs.ktor.server.config.yaml)
+    implementation(libs.ktor.client.cio)
+
+    implementation(libs.exposed.core)
+    implementation(libs.exposed.jdbc)
+    implementation(libs.exposed.dao)
+    implementation("com.h2database:h2:2.2.224")
+    implementation("org.postgresql:postgresql:42.7.7")
+
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
 }
