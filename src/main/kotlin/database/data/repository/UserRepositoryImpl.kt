@@ -34,6 +34,12 @@ class UserRepositoryImpl : UserRepository {
             ?.let { daoToModel(it) }
     }
 
+    override suspend fun findUserById(userId: Int): User? = suspendTransaction {
+        UserDao.find { UserTable.id eq userId }
+            .firstOrNull()
+            ?.let { daoToModel(it) }
+    }
+
     override suspend fun authenticate(username: String, password: String): User? = suspendTransaction {
         UserDao.find { UserTable.username eq username }
             .firstOrNull()
