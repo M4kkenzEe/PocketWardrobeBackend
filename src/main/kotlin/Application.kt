@@ -2,11 +2,12 @@ package com.example
 
 import com.example.auth.di.authModule
 import com.example.auth.di.databaseModule
-import com.example.routes.configureBdRoutes
+import com.example.routes.clothes
 import com.example.routes.configureDatabase
 import com.example.routes.configureRouting
 import com.example.routes.configureSecurity
 import com.example.routes.configureSerialization
+import com.example.routes.profile
 import com.example.services.removeBackground
 import io.ktor.server.application.*
 import org.koin.core.context.startKoin
@@ -22,8 +23,9 @@ fun Application.module() {
     configureSecurity()
     configureRouting()
     removeBackground()
-    configureBdRoutes()
+    clothes()
     configureDatabase()
+    profile()
 }
 
 

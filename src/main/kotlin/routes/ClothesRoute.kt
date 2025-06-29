@@ -19,11 +19,10 @@ import java.util.*
 
 const val UPLOADS_DIRECTORY = "/Users/yuriichernigovtsev/IdeaProjects/pocketwodrobe/uploads"
 
-fun Application.configureBdRoutes() {
+fun Application.clothes() {
     val clotheRepository: ClotheRepository by inject()
     val removeBgService: RemoveBgService by inject()
     routing {
-
         authenticate {
             staticFiles("/images", File(UPLOADS_DIRECTORY))
             route("/clothes") {
