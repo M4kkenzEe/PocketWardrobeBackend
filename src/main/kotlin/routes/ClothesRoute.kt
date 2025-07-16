@@ -13,8 +13,13 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.utils.io.jvm.javaio.toInputStream
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import org.koin.ktor.ext.inject
 import java.io.File
+import java.net.InetAddress
+import java.net.NetworkInterface
 import java.util.*
 
 const val UPLOADS_DIRECTORY = "/Users/yuriichernigovtsev/IdeaProjects/pocketwodrobe/uploads"
@@ -22,6 +27,7 @@ const val UPLOADS_DIRECTORY = "/Users/yuriichernigovtsev/IdeaProjects/pocketwodr
 fun Application.clothes() {
     val clotheRepository: ClotheRepository by inject()
     val removeBgService: RemoveBgService by inject()
+    val scope = CoroutineScope(Dispatchers.IO)
     routing {
         authenticate {
             staticFiles("/images", File(UPLOADS_DIRECTORY))
@@ -85,8 +91,9 @@ fun Application.clothes() {
                         val mimeType = getMimeType(File(originalFileName))
 
                         // Обрабатываем изображение с помощью RemoveBgService
-                        val processedImageResult: Result<File> =
+                        val processedImageResult: Result<File> = async {
                             removeBgService.processImage(imageBytes, originalFileName, mimeType)
+                        }.await()
                         val processedImageFile = processedImageResult.getOrNull()
 
                         // Сохраняем обработанное изображение
@@ -94,7 +101,8 @@ fun Application.clothes() {
                         val finalFile = File("$UPLOADS_DIRECTORY/$fileName")
                         processedImageFile?.copyTo(finalFile)
 
-                        val imageUrl = "http://localhost:8080/images/$fileName"
+                        val serverIp = getServerIpAddress()
+                        val imageUrl = "http://$serverIp:8080/images/$fileName"
                         val addingClothe = Clothe(
                             name = name,
                             imageUrl = imageUrl,
@@ -124,4 +132,44 @@ fun Application.clothes() {
         }
 
     }
+}
+
+fun getServerIpAddress(preferredInterface: String? = null): String {
+    try {
+        val interfaces = NetworkInterface.getNetworkInterfaces().toList()
+        for (networkInterface in interfaces) {
+            // Пропускаем неактивные или loopback интерфейсы
+            if (!networkInterface.isUp || networkInterface.isLoopback) continue
+            // Если указан предпочтительный интерфейс, проверяем его
+            if (preferredInterface != null && networkInterface.name != preferredInterface) continue
+
+            val addresses = networkInterface.inetAddresses.toList()
+            for (address in addresses) {
+                if (address is InetAddress && !address.isLoopbackAddress && address.hostAddress.contains(".")) {
+                    val ip = address.hostAddress
+                    // Приоритет для адресов в диапазоне 192.168.0.0/16
+                    if (ip.startsWith("192.168.")) {
+                        return ip
+                    }
+                    // Сохраняем первый подходящий IP, если не найдем 192.168.*
+                    if (!ip.startsWith("10.") && !ip.startsWith("172.")) {
+                        return ip
+                    }
+                }
+            }
+        }
+        // Если ничего не найдено, пробуем еще раз без фильтра диапазонов
+        for (networkInterface in interfaces) {
+            if (!networkInterface.isUp || networkInterface.isLoopback) continue
+            val addresses = networkInterface.inetAddresses.toList()
+            for (address in addresses) {
+                if (address is InetAddress && !address.isLoopbackAddress && address.hostAddress.contains(".")) {
+                    return address.hostAddress
+                }
+            }
+        }
+    } catch (e: Exception) {
+        println("Failed to get server IP: ${e.message}")
+    }
+    return "localhost" // Запасной вариант
 }

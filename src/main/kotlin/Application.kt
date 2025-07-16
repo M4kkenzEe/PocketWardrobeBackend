@@ -1,12 +1,13 @@
 package com.example
 
-import com.example.auth.di.authModule
-import com.example.auth.di.databaseModule
+import com.example.di.authModule
+import com.example.di.databaseModule
 import com.example.routes.clothes
 import com.example.routes.configureDatabase
 import com.example.routes.configureRouting
 import com.example.routes.configureSecurity
 import com.example.routes.configureSerialization
+import com.example.routes.looks
 import com.example.routes.profile
 import com.example.services.removeBackground
 import io.ktor.server.application.*
@@ -23,9 +24,10 @@ fun Application.module() {
     configureSecurity()
     configureRouting()
     removeBackground()
-    clothes()
     configureDatabase()
+    clothes()
     profile()
+    looks()
 }
 
 
