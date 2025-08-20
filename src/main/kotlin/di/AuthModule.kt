@@ -1,4 +1,4 @@
-package com.example.auth.di
+package com.example.di
 
 import com.example.auth.service.JwtService
 import org.koin.dsl.module

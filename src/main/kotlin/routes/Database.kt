@@ -13,7 +13,7 @@ fun Application.configureDatabase() {
     Database.connect(
         "jdbc:postgresql://localhost:5432/wardrobe2",
         driver = "org.postgresql.Driver",
-        user = "yuriichernigovtsev",
+        user = "postgres",
         password = "1234"
     )
 

@@ -3,7 +3,6 @@ package com.example.routes
 import com.example.database.data.model.Clothe
 import com.example.database.domain.repository.ClotheRepository
 import com.example.services.RemoveBgService
-import com.example.services.getMimeType
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
@@ -12,19 +11,20 @@ import io.ktor.server.http.content.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import io.ktor.utils.io.jvm.javaio.toInputStream
+import io.ktor.utils.io.jvm.javaio.*
 import org.koin.ktor.ext.inject
 import java.io.File
+import java.nio.file.Path
 import java.util.*
 
-const val UPLOADS_DIRECTORY = "/Users/yuriichernigovtsev/IdeaProjects/pocketwodrobe/uploads"
+private val uploadsDirPath: Path = Path.of(System.getenv("UPLOADS_DIRECTORY") ?: "uploads").toAbsolutePath()
 
 fun Application.clothes() {
     val clotheRepository: ClotheRepository by inject()
     val removeBgService: RemoveBgService by inject()
     routing {
         authenticate {
-            staticFiles("/images", File(UPLOADS_DIRECTORY))
+            staticFiles("/images", uploadsDirPath.toFile())
             route("/clothes") {
                 get {
                     val userId = call.principal<UserPrincipal>()?.userId
@@ -91,7 +91,7 @@ fun Application.clothes() {
 
                         // Сохраняем обработанное изображение
                         val fileName = "${UUID.randomUUID()}.png"
-                        val finalFile = File("$UPLOADS_DIRECTORY/$fileName")
+                        val finalFile = File("$uploadsDirPath/$fileName")
                         processedImageFile?.copyTo(finalFile)
 
                         val imageUrl = "http://localhost:8080/images/$fileName"
@@ -100,8 +100,36 @@ fun Application.clothes() {
                             imageUrl = imageUrl,
                             storeUrl = storeUrl
                         )
-                        val clotheId = clotheRepository.addClothe(addingClothe, userId)
-                        val clothe = clotheRepository.getClotheById(clotheId = clotheId, idUser = userId)
+                        val clotheId = clotheRepository.addClothe(addingClothe, userId).id
+                        val clothe = clotheRepository.getClotheById(clotheId = clotheId!!, idUser = userId)
+                        call.respond(HttpStatusCode.Created, clothe)
+                    } catch (e: Exception) {
+                        call.respond(HttpStatusCode.BadRequest, "Invalid request: ${e.message}")
+                    }
+                }
+
+                get("/from_url") {
+                    val userId = call.principal<UserPrincipal>()?.userId
+                        ?: throw IllegalStateException("User not authenticated")
+                    try {
+                        val url = call.parameters["url"] ?: ""
+
+                        val processedImageResult: Result<File> =
+                            removeBgService.getImageFromUrl(url)
+                        val processedImageFile = processedImageResult.getOrNull()
+
+                        val fileName = "${UUID.randomUUID()}.png"
+                        val finalFile = File("$uploadsDirPath/$fileName")
+                        processedImageFile?.copyTo(finalFile)
+
+                        val imageUrl = "http://localhost:8080/images/$fileName"
+                        val addingClothe = Clothe(
+                            name = "",
+                            imageUrl = imageUrl,
+                            storeUrl = url
+                        )
+                        val clotheId = clotheRepository.addClothe(addingClothe, userId).id
+                        val clothe = clotheRepository.getClotheById(clotheId = clotheId!!, idUser = userId)
                         call.respond(HttpStatusCode.Created, clothe)
                     } catch (e: Exception) {
                         call.respond(HttpStatusCode.BadRequest, "Invalid request: ${e.message}")
@@ -124,4 +152,13 @@ fun Application.clothes() {
         }
 
     }
+}
+
+fun getMimeType(file: File): String = when (file.extension.lowercase()) {
+    "jpg", "jpeg" -> "image/jpeg"
+    "png" -> "image/png"
+    "gif" -> "image/gif"
+    "bmp" -> "image/bmp"
+    "webp" -> "image/webp"
+    else -> "application/octet-stream" // fallback
 }

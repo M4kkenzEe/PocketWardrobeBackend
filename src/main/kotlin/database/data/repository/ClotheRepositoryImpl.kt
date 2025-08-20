@@ -31,13 +31,20 @@ class ClotheRepositoryImpl : ClotheRepository {
             .first()
     }
 
-    override suspend fun addClothe(clothe: Clothe, idUser: Int): Int = suspendTransaction {
+    override suspend fun addClothe(clothe: Clothe, idUser: Int): Clothe = suspendTransaction {
         ClotheDao.new {
             userId = EntityID(idUser, UserTable)
             name = clothe.name
-            imageUrl = clothe.imageUrl
-            storeUrl = clothe.storeUrl
-        }.id.value
+            imageUrl = clothe.imageUrl.toString()
+            storeUrl = clothe.storeUrl.toString()
+        }.let { dao ->
+            Clothe(
+                id = dao.id.value,
+                name = dao.name,
+                imageUrl = dao.imageUrl,
+                storeUrl = dao.storeUrl
+            )
+        }
     }
 
     override suspend fun removeClothe(name: String): Boolean = suspendTransaction {

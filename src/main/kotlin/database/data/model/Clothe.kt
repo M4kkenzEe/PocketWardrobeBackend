@@ -9,9 +9,10 @@ import org.jetbrains.exposed.v1.dao.IntEntityClass
 
 @Serializable
 data class Clothe(
-    val imageUrl: String,
+    val id: Int? = null,
+    val imageUrl: String? = null,
     val name: String,
-    val storeUrl: String,
+    val storeUrl: String? = null,
 )
 
 object ClotheTable : IntIdTable("clothes") {
@@ -31,6 +32,7 @@ class ClotheDao(id: EntityID<Int>) : IntEntity(id) {
 }
 
 fun daoToModel(dao: ClotheDao) = Clothe(
+    id = dao.id.value,
     name = dao.name,
     imageUrl = dao.imageUrl,
     storeUrl = dao.storeUrl
