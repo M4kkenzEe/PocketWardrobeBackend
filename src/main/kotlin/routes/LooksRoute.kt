@@ -22,8 +22,8 @@ import java.util.UUID
 fun Application.looks() {
     val lookRepository: LookRepository by inject()
     routing {
+        staticFiles("/looks", File("looks"))
         authenticate {
-            staticFiles("/looks", File("looks"))
             route("/looks") {
                 get {
                     val userId = call.principal<UserPrincipal>()?.userId

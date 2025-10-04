@@ -11,10 +11,10 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 fun Application.configureDatabase() {
     Database.connect(
-        "jdbc:postgresql://localhost:5432/wardrobe2",
+        "jdbc:postgresql://localhost:5432/wardrobe",
         driver = "org.postgresql.Driver",
         user = "postgres",
-        password = "1234"
+        password = ""
     )
 
     transaction {
