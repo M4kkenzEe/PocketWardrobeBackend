@@ -4,20 +4,17 @@ import com.example.database.data.model.Look
 import com.example.database.data.model.LookDto
 import com.example.database.domain.repository.LookRepository
 import io.ktor.http.*
-import io.ktor.http.content.PartData
-import io.ktor.http.content.forEachPart
-import io.ktor.http.content.streamProvider
+import io.ktor.http.content.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
-import io.ktor.server.http.content.staticFiles
-import io.ktor.server.plugins.origin
+import io.ktor.server.http.content.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import org.koin.ktor.ext.inject
 import java.io.File
-import java.util.UUID
+import java.util.*
 
 fun Application.looks() {
     val lookRepository: LookRepository by inject()

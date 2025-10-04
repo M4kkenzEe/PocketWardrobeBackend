@@ -1,15 +1,9 @@
 package database.data.repository
 
-import com.example.database.data.model.ClotheTable
-import com.example.database.data.model.Look
-import com.example.database.data.model.LookDao
-import com.example.database.data.model.LookDto
-import com.example.database.data.model.LookItemDao
-import com.example.database.data.model.LookTable
-import com.example.database.data.model.UserTable
-import com.example.database.data.model.daoToModel
+import com.example.database.data.model.*
 import com.example.database.domain.repository.LookRepository
 import com.example.database.suspendTransaction
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.dao.id.EntityID
 
 class LookRepositoryImpl : LookRepository {
@@ -36,7 +30,13 @@ class LookRepositoryImpl : LookRepository {
                 this.rotation = item.rotation
             }
         }
-
         newLook.id.value
+    }
+
+    override suspend fun getLookById(lookId: Int, userId: Int): Look = suspendTransaction {
+        LookDao
+            .find { (LookTable.id eq lookId) and (LookTable.userId eq userId) }
+            .map(::daoToModel)
+            .first()
     }
 }

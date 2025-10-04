@@ -9,6 +9,7 @@ import org.jetbrains.exposed.v1.dao.IntEntityClass
 
 @Serializable
 data class Look(
+    val id: Int? = null,
     val name: String,
     val lookItems: List<LookItem>,
     val url: String

@@ -1,5 +1,6 @@
 package com.example.routes
 
+import com.example.ClotheUseCase
 import com.example.database.data.model.Clothe
 import com.example.database.domain.repository.ClotheRepository
 import com.example.services.RemoveBgService
@@ -23,6 +24,7 @@ private val uploadsDirPath: Path = Path.of(System.getenv("UPLOADS_DIRECTORY") ?:
 fun Application.clothes() {
     val clotheRepository: ClotheRepository by inject()
     val removeBgService: RemoveBgService by inject()
+    val usecase: ClotheUseCase by inject()
 
     routing {
         staticFiles("/images", uploadsDirPath.toFile())
@@ -70,6 +72,19 @@ fun Application.clothes() {
                     val saved = clotheRepository.addClothe(clothe, userId)
                     val result = clotheRepository.getClotheById(saved.id!!, userId)
                     call.respond(HttpStatusCode.Created, result)
+                }
+
+                get("/byLookId") {
+                    val userId = getUserIdOrThrow(call)
+                    val lookId = call.parameters["lookId"]?.toIntOrNull()
+                        ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing or invalid lookId")
+
+                    try {
+                        val result = usecase.getClothesByLookId(lookId = lookId, userId)
+                        call.respond(HttpStatusCode.OK, result)
+                    } catch (e: Exception) {
+                        call.respond(HttpStatusCode.InternalServerError, "Err: ${e.localizedMessage}")
+                    }
                 }
 
                 delete("/{clotheName}") {
