@@ -12,9 +12,8 @@ class RemoveBgService(
     private val removeBgServiceUrl: String,
     private val outputPath: String
 ) {
-    suspend fun processImage(fileBytes: ByteArray, fileName: String, mimeType: String): Result<File> {
+    suspend fun processImage(fileBytes: ByteArray, fileName: String, mimeType: String): Result<ByteArray> {
         return try {
-            // Отправляем файл на внешний сервис
             val response: HttpResponse = client.submitFormWithBinaryData(
                 url = removeBgServiceUrl + PHOTO_ENDPOINT,
                 formData = formData {
@@ -29,17 +28,16 @@ class RemoveBgService(
                 return Result.failure(Exception("Error from service: ${response.status}"))
             }
 
-            // Сохраняем результат
+            // Считываем содержимое файла из ответа сразу в байты
             val responseBytes = response.readRawBytes()
-            val outputFileName = "output_${System.currentTimeMillis()}.png"
-            val outputFile = File(outputPath, outputFileName)
-            outputFile.writeBytes(responseBytes)
 
-            Result.success(outputFile)
+            // Возвращаем байты без сохранения в файл
+            Result.success(responseBytes)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
+
 
     suspend fun getImageFromUrl(img: String): Result<File> {
         return try {
