@@ -26,6 +26,7 @@ fun Application.module() {
     configureRouting()
     clothes()
     looks()
+    sharedLooks()
     configureDatabase()
     profile()
 }

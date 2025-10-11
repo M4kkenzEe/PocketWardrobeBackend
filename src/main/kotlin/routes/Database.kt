@@ -3,6 +3,7 @@ package com.example.routes
 import com.example.database.data.model.ClotheTable
 import com.example.database.data.model.LookItemTable
 import com.example.database.data.model.LookTable
+import com.example.database.data.model.SharedLookTable
 import com.example.database.data.model.UserTable
 import io.ktor.server.application.*
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -19,10 +20,11 @@ fun Application.configureDatabase() {
 
     transaction {
         SchemaUtils.create(
-            ClotheTable,
             UserTable,
+            ClotheTable,
             LookTable,
-            LookItemTable
+            LookItemTable,
+            SharedLookTable
         )
     }
 }

@@ -1,6 +1,6 @@
 package com.example.routes
 
-import com.example.ClotheUseCase
+import com.example.usecases.ClotheUseCase
 import com.example.database.data.model.Clothe
 import com.example.database.domain.repository.ClotheRepository
 import com.example.services.RemoveBgService
