@@ -31,6 +31,7 @@ class LookDao(id: EntityID<Int>) : IntEntity(id) {
 }
 
 fun daoToModel(dao: LookDao): Look = Look(
+    id = dao.id.value,
     name = dao.name,
     lookItems = dao.lookItems.map { daoToModel(it) },
     url = dao.url

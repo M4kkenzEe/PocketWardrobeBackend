@@ -1,4 +1,4 @@
-package com.example
+package com.example.usecases
 
 import com.example.database.data.model.Clothe
 import com.example.database.domain.repository.LookRepository

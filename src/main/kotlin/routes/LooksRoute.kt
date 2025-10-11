@@ -2,7 +2,9 @@ package com.example.routes
 
 import com.example.database.data.model.Look
 import com.example.database.data.model.LookDto
+import com.example.database.data.model.ShareLinkResponse
 import com.example.database.domain.repository.LookRepository
+import com.example.database.domain.repository.SharedLookRepository
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
@@ -18,6 +20,7 @@ import java.util.*
 
 fun Application.looks() {
     val lookRepository: LookRepository by inject()
+    val sharedLookRepository: SharedLookRepository by inject()
     routing {
         staticFiles("/looks", File("looks"))
         authenticate {
@@ -102,6 +105,53 @@ fun Application.looks() {
                     val imageUrl = "http://localhost:8080/looks/$fileName"
 
                     call.respond(HttpStatusCode.Created, mapOf("imageUrl" to imageUrl))
+                }
+
+                // Create share link for a look
+                post("/{lookId}/share") {
+                    val ownerUserId = call.principal<UserPrincipal>()?.userId
+                        ?: throw IllegalStateException("User not authenticated")
+
+                    val lookId = call.parameters["lookId"]?.toIntOrNull()
+                        ?: return@post call.respond(HttpStatusCode.BadRequest, "Invalid lookId")
+
+                    try {
+                        val shareToken = sharedLookRepository.createShareToken(lookId, ownerUserId)
+                        val shareUrl = "pocketwardrobe://share/$shareToken"
+
+                        call.respond(
+                            HttpStatusCode.Created,
+                            ShareLinkResponse(shareToken, shareUrl)
+                        )
+                    } catch (e: IllegalArgumentException) {
+                        call.respond(HttpStatusCode.NotFound, e.message ?: "Look not found")
+                    } catch (e: Exception) {
+                        call.respond(HttpStatusCode.InternalServerError, "Error creating share link: ${e.message}")
+                    }
+                }
+
+                // Get all share tokens for a look
+                get("/{lookId}/shares") {
+                    val ownerUserId = call.principal<UserPrincipal>()?.userId
+                        ?: throw IllegalStateException("User not authenticated")
+
+                    val lookId = call.parameters["lookId"]?.toIntOrNull()
+                        ?: return@get call.respond(HttpStatusCode.BadRequest, "Invalid lookId")
+
+                    try {
+                        val shareTokens = sharedLookRepository.getShareTokensForLook(lookId, ownerUserId)
+                        val responses = shareTokens.map {
+                            ShareLinkResponse(
+                                shareToken = it.shareToken,
+                                shareUrl = "pocketwardrobe://share/${it.shareToken}"
+                            )
+                        }
+                        call.respond(HttpStatusCode.OK, responses)
+                    } catch (e: IllegalArgumentException) {
+                        call.respond(HttpStatusCode.NotFound, e.message ?: "Look not found")
+                    } catch (e: Exception) {
+                        call.respond(HttpStatusCode.InternalServerError, "Error retrieving share links: ${e.message}")
+                    }
                 }
             }
         }
