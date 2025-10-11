@@ -1,7 +1,6 @@
 package com.example.routes
 
 import com.example.database.data.model.Look
-import com.example.database.data.model.LookDto
 import com.example.database.data.model.ShareLinkResponse
 import com.example.database.domain.repository.LookRepository
 import com.example.database.domain.repository.SharedLookRepository
@@ -13,6 +12,7 @@ import io.ktor.server.http.content.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.utils.io.jvm.javaio.*
 import kotlinx.serialization.json.Json
 import org.koin.ktor.ext.inject
 import java.io.File
@@ -53,7 +53,7 @@ fun Application.looks() {
 
                         call.respond(HttpStatusCode.Created, mapOf("id" to lookId))
                     } catch (e: ContentTransformationException) {
-                        call.respond(HttpStatusCode.BadRequest, "Invalid JSON format")
+                        call.respond(HttpStatusCode.BadRequest, "${e.localizedMessage}")
                     } catch (e: Exception) {
                         call.respond(HttpStatusCode.InternalServerError, "Error creating look: ${e.message}")
                     }
@@ -75,7 +75,7 @@ fun Application.looks() {
                                     if (contentType != ContentType.Image.JPEG && contentType != ContentType.Image.PNG) {
                                         throw IllegalArgumentException("Invalid image format. Only JPEG/PNG allowed.")
                                     }
-                                    imageBytes = part.streamProvider().readAllBytes()
+                                    imageBytes = part.provider().toInputStream().readAllBytes()
                                     if (imageBytes!!.size > 5 * 1024 * 1024) { // Лимит 5MB
                                         throw IllegalArgumentException("Image too large. Max size: 5MB.")
                                     }
@@ -157,8 +157,3 @@ fun Application.looks() {
         }
     }
 }
-
-fun Look.toDto() = LookDto(
-    name = this.name,
-    lookItems = this.lookItems
-)
