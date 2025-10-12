@@ -6,13 +6,15 @@ import com.example.database.data.model.LookItem
 import com.example.database.domain.repository.ClotheRepository
 import com.example.database.domain.repository.LookRepository
 import com.example.database.domain.repository.SharedLookRepository
+import com.example.database.domain.repository.UserClotheRepository
 import java.io.File
 import java.util.*
 
 class ImportSharedLookUseCase(
     private val sharedLookRepository: SharedLookRepository,
     private val clotheRepository: ClotheRepository,
-    private val lookRepository: LookRepository
+    private val lookRepository: LookRepository,
+    private val userClotheRepository: UserClotheRepository
 ) {
     /**
      * Imports a full look (all clothes + look itself) to the target user's wardrobe
@@ -44,8 +46,10 @@ class ImportSharedLookUseCase(
                     storeUrl = originalClothe.storeUrl
                 )
 
-                val savedClothe = clotheRepository.addClothe(newClothe, targetUserId)
-                clotheIdMapping[originalClothe.id!!] = savedClothe.id!!
+                val savedClothe = clotheRepository.addClothe(newClothe)
+                // Add clothe to user's wardrobe
+                userClotheRepository.addClotheToUser(targetUserId, savedClothe.id!!)
+                clotheIdMapping[originalClothe.id!!] = savedClothe.id
             }
 
             // Copy look image
@@ -119,8 +123,10 @@ class ImportSharedLookUseCase(
                     storeUrl = originalClothe.storeUrl
                 )
 
-                val savedClothe = clotheRepository.addClothe(newClothe, targetUserId)
-                newClotheIds.add(savedClothe.id!!)
+                val savedClothe = clotheRepository.addClothe(newClothe)
+                // Add clothe to user's wardrobe
+                userClotheRepository.addClotheToUser(targetUserId, savedClothe.id!!)
+                newClotheIds.add(savedClothe.id)
             }
 
             Result.success(newClotheIds)

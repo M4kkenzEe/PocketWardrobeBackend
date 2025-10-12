@@ -3,6 +3,7 @@ package com.example.routes
 import com.example.usecases.ClotheUseCase
 import com.example.database.data.model.Clothe
 import com.example.database.domain.repository.ClotheRepository
+import com.example.database.domain.repository.UserClotheRepository
 import com.example.services.RemoveBgService
 import io.ktor.http.*
 import io.ktor.http.content.*
@@ -23,6 +24,7 @@ private val uploadsDirPath: Path = Path.of(System.getenv("UPLOADS_DIRECTORY") ?:
 
 fun Application.clothes() {
     val clotheRepository: ClotheRepository by inject()
+    val userClotheRepository: UserClotheRepository by inject()
     val removeBgService: RemoveBgService by inject()
     val usecase: ClotheUseCase by inject()
 
@@ -32,14 +34,29 @@ fun Application.clothes() {
             route("/clothes") {
                 get {
                     val userId = getUserIdOrThrow(call)
-                    call.respond(clotheRepository.getAllClothes(userId))
+                    try {
+                        call.respond(clotheRepository.getAllClothes(userId))
+                    } catch (e: Exception) {
+                        call.respond(HttpStatusCode.InternalServerError, "${e.localizedMessage}")
+                    }
+
                 }
 
                 get("/byName/{clotheName}") {
                     val userId = getUserIdOrThrow(call)
                     val name = call.parameters["clotheName"]?.takeIf { it.isNotBlank() }
                         ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing clotheName")
-                    call.respond(clotheRepository.getClotheByName(name, userId))
+                    val clothe = clotheRepository.getClotheByName(name, userId)
+                        ?: return@get call.respond(HttpStatusCode.NotFound, "Clothe not found")
+                    call.respond(clothe)
+                }
+
+                get("/{id}") {
+                    val id = call.parameters["id"]?.toIntOrNull()
+                        ?: return@get call.respond(HttpStatusCode.BadRequest, "Invalid id")
+                    val clothe = clotheRepository.getClotheById(id)
+                        ?: return@get call.respond(HttpStatusCode.NotFound, "Clothe not found")
+                    call.respond(clothe)
                 }
 
                 post {
@@ -54,8 +71,16 @@ fun Application.clothes() {
 
                     val imageUrl = saveImage(processedImage)
                     val clothe = Clothe(name = form.name, imageUrl = imageUrl, storeUrl = form.storeUrl)
-                    val saved = clotheRepository.addClothe(clothe, userId)
-                    val result = clotheRepository.getClotheById(saved.id!!, userId)
+                    val saved = clotheRepository.addClothe(clothe)
+
+                    // Add clothe to user's wardrobe
+                    userClotheRepository.addClotheToUser(userId, saved.id!!)
+
+                    val result = clotheRepository.getClotheById(saved.id)
+                        ?: return@post call.respond(
+                            HttpStatusCode.InternalServerError,
+                            "Failed to retrieve created clothe"
+                        )
                     call.respond(HttpStatusCode.Created, result)
                 }
 
@@ -69,8 +94,16 @@ fun Application.clothes() {
 
                     val imageUrl = saveImage(imageFile.readBytes())
                     val clothe = Clothe(name = "", imageUrl = imageUrl, storeUrl = url)
-                    val saved = clotheRepository.addClothe(clothe, userId)
-                    val result = clotheRepository.getClotheById(saved.id!!, userId)
+                    val saved = clotheRepository.addClothe(clothe)
+
+                    // Add clothe to user's wardrobe
+                    userClotheRepository.addClotheToUser(userId, saved.id!!)
+
+                    val result = clotheRepository.getClotheById(saved.id)
+                        ?: return@get call.respond(
+                            HttpStatusCode.InternalServerError,
+                            "Failed to retrieve created clothe"
+                        )
                     call.respond(HttpStatusCode.Created, result)
                 }
 
@@ -87,13 +120,15 @@ fun Application.clothes() {
                     }
                 }
 
-                delete("/{clotheName}") {
-                    val name = call.parameters["clotheName"]?.takeIf { it.isNotBlank() }
-                        ?: return@delete call.respond(HttpStatusCode.BadRequest, "Missing clotheName")
-                    if (clotheRepository.removeClothe(name)) {
+                delete("/{id}") {
+                    val userId = getUserIdOrThrow(call)
+                    val id = call.parameters["id"]?.toIntOrNull()
+                        ?: return@delete call.respond(HttpStatusCode.BadRequest, "Invalid id")
+
+                    if (userClotheRepository.removeClotheFromUser(userId, id)) {
                         call.respond(HttpStatusCode.NoContent)
                     } else {
-                        call.respond(HttpStatusCode.NotFound)
+                        call.respond(HttpStatusCode.NotFound, "Clothe not found in user's wardrobe")
                     }
                 }
             }
