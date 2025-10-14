@@ -10,6 +10,13 @@ import java.util.*
 class SharedLookRepositoryImpl : SharedLookRepository {
 
     override suspend fun createShareToken(lookId: Int, ownerId: Int): String = suspendTransaction {
+        // Check if the user owns this look
+        val userLook = UserLookDao.find {
+            (UserLookTable.userId eq ownerId) and
+            (UserLookTable.lookId eq lookId) and
+            (UserLookTable.isDeleted eq false)
+        }.firstOrNull() ?: throw IllegalArgumentException("Look not found or not accessible")
+
         val shareToken = UUID.randomUUID().toString()
 
         SharedLookDao.new {
@@ -39,15 +46,27 @@ class SharedLookRepositoryImpl : SharedLookRepository {
             SharedLookTable.shareToken eq shareToken
         }.firstOrNull() ?: return@suspendTransaction false
 
-        val look = sharedLook.look
-        if (look.userId.value != ownerId) {
-            return@suspendTransaction false
-        }
+        val lookId = sharedLook.lookId.value
+
+        // Check if the user owns this look
+        val userLook = UserLookDao.find {
+            (UserLookTable.userId eq ownerId) and
+            (UserLookTable.lookId eq lookId) and
+            (UserLookTable.isDeleted eq false)
+        }.firstOrNull() ?: return@suspendTransaction false
+
         sharedLook.delete()
         true
     }
 
     override suspend fun getShareTokensForLook(lookId: Int, ownerId: Int): List<SharedLook> = suspendTransaction {
+        // Check if the user owns this look
+        val userLook = UserLookDao.find {
+            (UserLookTable.userId eq ownerId) and
+            (UserLookTable.lookId eq lookId) and
+            (UserLookTable.isDeleted eq false)
+        }.firstOrNull() ?: throw IllegalArgumentException("Look not found or not accessible")
+
         SharedLookDao.find {
             SharedLookTable.lookId eq lookId
         }.map(::daoToModel)

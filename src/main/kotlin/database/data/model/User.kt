@@ -29,7 +29,6 @@ class UserDao(id: EntityID<Int>) : IntEntity(id) {
     var email by UserTable.email
     var passwordHash by UserTable.passwordHash
     var gender by UserTable.gender
-    val looks by LookDao referrersOn LookTable.userId
 }
 
 fun daoToModel(dao: UserDao) = User(

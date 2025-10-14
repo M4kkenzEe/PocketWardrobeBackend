@@ -4,6 +4,7 @@ import com.example.database.data.model.Look
 import com.example.database.data.model.ShareLinkResponse
 import com.example.database.domain.repository.LookRepository
 import com.example.database.domain.repository.SharedLookRepository
+import com.example.database.domain.repository.UserLookRepository
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
@@ -21,6 +22,7 @@ import java.util.*
 fun Application.looks() {
     val lookRepository: LookRepository by inject()
     val sharedLookRepository: SharedLookRepository by inject()
+    val userLookRepository: UserLookRepository by inject()
     routing {
         staticFiles("/looks", File("looks"))
         authenticate {
@@ -142,6 +144,19 @@ fun Application.looks() {
                         call.respond(HttpStatusCode.InternalServerError, "error: ${e.localizedMessage}")
                     }
 
+                }
+
+                delete("/{id}") {
+                    val userId = call.principal<UserPrincipal>()?.userId
+                        ?: throw IllegalStateException("User not authenticated")
+                    val id = call.parameters["id"]?.toIntOrNull()
+                        ?: return@delete call.respond(HttpStatusCode.BadRequest, "Invalid id")
+
+                    if (userLookRepository.removeLookFromUser(userId, id)) {
+                        call.respond(HttpStatusCode.NoContent)
+                    } else {
+                        call.respond(HttpStatusCode.NotFound, "Look not found in user's wardrobe")
+                    }
                 }
 
                 // Get all share tokens for a look

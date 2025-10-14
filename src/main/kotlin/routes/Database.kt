@@ -5,6 +5,7 @@ import com.example.database.data.model.LookItemTable
 import com.example.database.data.model.LookTable
 import com.example.database.data.model.SharedLookTable
 import com.example.database.data.model.UserClotheTable
+import com.example.database.data.model.UserLookTable
 import com.example.database.data.model.UserTable
 import io.ktor.server.application.*
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -25,6 +26,7 @@ fun Application.configureDatabase() {
             ClotheTable,
             UserClotheTable,
             LookTable,
+            UserLookTable,
             LookItemTable,
             SharedLookTable
         )
