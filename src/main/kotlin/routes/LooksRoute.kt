@@ -29,7 +29,7 @@ fun Application.looks() {
                     val userId = call.principal<UserPrincipal>()?.userId
                         ?: throw IllegalStateException("User not authenticated")
                     try {
-                        val looks = lookRepository.getAllLooks(userId)
+                        val looks = lookRepository.getLookList(userId)
                         call.respond(HttpStatusCode.OK, looks)
                     } catch (e: Exception) {
                         call.respond(HttpStatusCode.InternalServerError, "Error retrieving looks: ${e.message}")
@@ -128,6 +128,20 @@ fun Application.looks() {
                     } catch (e: Exception) {
                         call.respond(HttpStatusCode.InternalServerError, "Error creating share link: ${e.message}")
                     }
+                }
+
+                get("/byId/{lookId}") {
+                    val userId = call.principal<UserPrincipal>()?.userId
+                        ?: throw IllegalStateException("User not authenticated")
+                    val lookId = call.parameters["lookId"]?.toIntOrNull()
+                        ?: return@get call.respond(HttpStatusCode.BadRequest, "Invalid lookId")
+                    try {
+                        val result = lookRepository.getLookById(lookId = lookId, userId = userId)
+                        call.respond(HttpStatusCode.OK, result)
+                    } catch (e: Exception) {
+                        call.respond(HttpStatusCode.InternalServerError, "error: ${e.localizedMessage}")
+                    }
+
                 }
 
                 // Get all share tokens for a look

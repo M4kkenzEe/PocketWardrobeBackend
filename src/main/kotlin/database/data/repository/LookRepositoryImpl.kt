@@ -1,6 +1,7 @@
 package database.data.repository
 
 import com.example.database.data.model.*
+import com.example.database.domain.model.LookPreview
 import com.example.database.domain.repository.LookRepository
 import com.example.database.suspendTransaction
 import org.jetbrains.exposed.v1.core.and
@@ -39,4 +40,11 @@ class LookRepositoryImpl : LookRepository {
             .map(::daoToModel)
             .first()
     }
+
+    override suspend fun getLookList(userId: Int): List<LookPreview> = suspendTransaction {
+        val lookDBO = LookDao.find { LookTable.userId eq userId }.map(::daoToModel)
+        lookDBO.map { LookPreview.toPreview(it) }
+    }
 }
+
+
