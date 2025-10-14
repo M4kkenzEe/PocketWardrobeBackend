@@ -1,8 +1,8 @@
 package com.example.routes
 
+import com.example.auth.model.UserPrincipal
 import com.example.database.data.model.ImportRequest
 import com.example.database.data.model.ImportType
-import com.example.database.data.model.ShareLinkResponse
 import com.example.database.domain.repository.SharedLookRepository
 import com.example.usecases.ImportSharedLookUseCase
 import io.ktor.http.*
