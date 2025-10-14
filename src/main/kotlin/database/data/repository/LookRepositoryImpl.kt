@@ -1,6 +1,7 @@
 package database.data.repository
 
 import com.example.database.data.model.*
+import com.example.database.domain.model.LookPreview
 import com.example.database.domain.repository.LookRepository
 import com.example.database.suspendTransaction
 import org.jetbrains.exposed.v1.core.and
@@ -8,12 +9,20 @@ import org.jetbrains.exposed.v1.core.dao.id.EntityID
 
 class LookRepositoryImpl : LookRepository {
     override suspend fun getAllLooks(userId: Int): List<Look> = suspendTransaction {
-        LookDao.find { LookTable.userId eq userId }.map(::daoToModel)
+        // Find all user_looks relations for this user where isDeleted = false
+        val userLooks = UserLookDao.find {
+            (UserLookTable.userId eq userId) and (UserLookTable.isDeleted eq false)
+        }
+
+        // Get the look IDs
+        val lookIds = userLooks.map { it.lookId.value }
+
+        // Fetch the actual looks
+        LookDao.find { LookTable.id inList lookIds }.map(::daoToModel)
     }
 
     override suspend fun addLook(look: Look, userId: Int, imageUrl: String): Int = suspendTransaction {
         val newLook = LookDao.new {
-            this.userId = EntityID(userId, UserTable)
             this.name = look.name
             this.url = look.url
         }
@@ -30,13 +39,42 @@ class LookRepositoryImpl : LookRepository {
                 this.rotation = item.rotation
             }
         }
+
+        // Create UserLook relation
+        UserLookDao.new {
+            this.userId = EntityID(userId, UserTable)
+            this.lookId = newLook.id
+            this.isDeleted = false
+        }
+
         newLook.id.value
     }
 
     override suspend fun getLookById(lookId: Int, userId: Int): Look = suspendTransaction {
-        LookDao
-            .find { (LookTable.id eq lookId) and (LookTable.userId eq userId) }
-            .map(::daoToModel)
-            .first()
+        // Check if user has access to this look (and it's not deleted)
+        val userLook = UserLookDao.find {
+            (UserLookTable.userId eq userId) and
+            (UserLookTable.lookId eq lookId) and
+            (UserLookTable.isDeleted eq false)
+        }.firstOrNull() ?: throw IllegalArgumentException("Look not found or not accessible")
+
+        LookDao.findById(lookId)?.let(::daoToModel)
+            ?: throw IllegalArgumentException("Look not found")
+    }
+
+    override suspend fun getLookList(userId: Int): List<LookPreview> = suspendTransaction {
+        // Find all user_looks relations for this user where isDeleted = false
+        val userLooks = UserLookDao.find {
+            (UserLookTable.userId eq userId) and (UserLookTable.isDeleted eq false)
+        }
+
+        // Get the look IDs
+        val lookIds = userLooks.map { it.lookId.value }
+
+        // Fetch the actual looks and convert to previews
+        val looks = LookDao.find { LookTable.id inList lookIds }.map(::daoToModel)
+        looks.map { LookPreview.toPreview(it) }
     }
 }
+
+

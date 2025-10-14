@@ -1,0 +1,92 @@
+# =====================================================================================
+# Production Docker Compose Configuration for Linux Ubuntu
+# =====================================================================================
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# =====================================================================================
+
+version: '3.8'
+
+services:
+  # ===================================================================================
+  # Backend Service - Production Overrides
+  # ===================================================================================
+  backend:
+    # Add extra_hosts for Linux to support host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    # Production logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Override environment for production (если нужно)
+    # environment:
+    #   LOG_LEVEL: WARN
+    #   CORS_ALLOWED_ORIGINS: "https://your-production-domain.com"
+
+  # ===================================================================================
+  # Optional: RemoveBG Service (если есть Dockerfile)
+  # ===================================================================================
+  # Раскомментируйте, если хотите запускать RemoveBG как контейнер
+  # removebg_service:
+  #   build: ./path-to-removebg-service
+  #   container_name: removebg_service
+  #   ports:
+  #     - "8000:8000"
+  #   networks:
+  #     - pocketwardrobe_network
+  #   restart: unless-stopped
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '1'
+  #         memory: 512M
+  #       reservations:
+  #         cpus: '0.25'
+  #         memory: 256M
+
+  # ===================================================================================
+  # Optional: Analysis Service (если есть Dockerfile)
+  # ===================================================================================
+  # Раскомментируйте, если хотите запускать Analysis как контейнер
+  # analysis_service:
+  #   build: ./path-to-analysis-service
+  #   container_name: analysis_service
+  #   ports:
+  #     - "8088:8088"
+  #   networks:
+  #     - pocketwardrobe_network
+  #   restart: unless-stopped
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '1'
+  #         memory: 512M
+  #       reservations:
+  #         cpus: '0.25'
+  #         memory: 256M
+
+# =====================================================================================
+# Если используете контейнеризированные внешние сервисы, обновите backend environment:
+# =====================================================================================
+# services:
+#   backend:
+#     environment:
+#       REMOVE_BG_SERVICE_URL: http://removebg_service:8000/
+#       ANALYSIS_SERVICE_URL: http://analysis_service:8088/
+#     depends_on:
+#       - removebg_service
+#       - analysis_service

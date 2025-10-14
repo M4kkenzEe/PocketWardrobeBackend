@@ -9,7 +9,7 @@ import org.jetbrains.exposed.v1.dao.IntEntityClass
 object UserClotheTable : IntIdTable("user_clothes") {
     val userId = reference("user_id", UserTable, onDelete = ReferenceOption.CASCADE)
     val clotheId = reference("clothe_id", ClotheTable, onDelete = ReferenceOption.CASCADE)
-    val isDeleted = bool("is_deleted").default(false)
+    var isDeleted = bool("is_deleted").default(false)
 }
 
 class UserClotheDao(id: EntityID<Int>) : IntEntity(id) {

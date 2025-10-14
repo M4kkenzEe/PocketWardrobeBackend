@@ -1,5 +1,7 @@
 package com.example.database.data.repository
 
+import com.example.database.data.model.Clothe
+import com.example.database.data.model.ClotheDao
 import com.example.database.data.model.ClotheTable
 import com.example.database.data.model.UserClotheDao
 import com.example.database.data.model.UserClotheTable
@@ -38,8 +40,8 @@ class UserClotheRepositoryImpl : UserClotheRepository {
     override suspend fun removeClotheFromUser(userId: Int, clotheId: Int): Boolean = suspendTransaction {
         val relation = UserClotheDao.find {
             (UserClotheTable.userId eq userId) and
-            (UserClotheTable.clotheId eq clotheId) and
-            (UserClotheTable.isDeleted eq false)
+                    (UserClotheTable.clotheId eq clotheId) and
+                    (UserClotheTable.isDeleted eq false)
         }.firstOrNull()
 
         if (relation != null) {
@@ -53,8 +55,8 @@ class UserClotheRepositoryImpl : UserClotheRepository {
     override suspend fun restoreClotheForUser(userId: Int, clotheId: Int): Boolean = suspendTransaction {
         val relation = UserClotheDao.find {
             (UserClotheTable.userId eq userId) and
-            (UserClotheTable.clotheId eq clotheId) and
-            (UserClotheTable.isDeleted eq true)
+                    (UserClotheTable.clotheId eq clotheId) and
+                    (UserClotheTable.isDeleted eq true)
         }.firstOrNull()
 
         if (relation != null) {
@@ -68,8 +70,17 @@ class UserClotheRepositoryImpl : UserClotheRepository {
     override suspend fun isClotheInUserWardrobe(userId: Int, clotheId: Int): Boolean = suspendTransaction {
         UserClotheDao.find {
             (UserClotheTable.userId eq userId) and
-            (UserClotheTable.clotheId eq clotheId) and
-            (UserClotheTable.isDeleted eq false)
+                    (UserClotheTable.clotheId eq clotheId) and
+                    (UserClotheTable.isDeleted eq false)
         }.firstOrNull() != null
+    }
+
+    override suspend fun addClotheById(userId: Int, clotheId: Int): Boolean {
+        UserClotheDao.new {
+            this.userId = EntityID(userId, UserTable)
+            this.clotheId = EntityID(clotheId, ClotheTable)
+            this.isDeleted = false
+        }
+        return true
     }
 }

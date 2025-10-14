@@ -5,4 +5,5 @@ interface UserClotheRepository {
     suspend fun removeClotheFromUser(userId: Int, clotheId: Int): Boolean
     suspend fun restoreClotheForUser(userId: Int, clotheId: Int): Boolean
     suspend fun isClotheInUserWardrobe(userId: Int, clotheId: Int): Boolean
+    suspend fun addClotheById(userId: Int, clotheId: Int): Boolean
 }

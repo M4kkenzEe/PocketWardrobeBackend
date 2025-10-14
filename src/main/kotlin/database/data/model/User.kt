@@ -1,12 +1,10 @@
 package com.example.database.data.model
 
-import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.v1.core.dao.id.EntityID
 import org.jetbrains.exposed.v1.core.dao.id.IntIdTable
 import org.jetbrains.exposed.v1.dao.IntEntity
 import org.jetbrains.exposed.v1.dao.IntEntityClass
 
-@Serializable
 data class User(
     val userId: Int,
     val username: String,
@@ -29,7 +27,6 @@ class UserDao(id: EntityID<Int>) : IntEntity(id) {
     var email by UserTable.email
     var passwordHash by UserTable.passwordHash
     var gender by UserTable.gender
-    val looks by LookDao referrersOn LookTable.userId
 }
 
 fun daoToModel(dao: UserDao) = User(

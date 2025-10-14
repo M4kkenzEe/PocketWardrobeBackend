@@ -16,7 +16,6 @@ data class Look(
 )
 
 object LookTable : IntIdTable("looks") {
-    val userId = reference("user_id", UserTable, onDelete = ReferenceOption.CASCADE)
     val name = varchar("name", 50)
     val url = varchar("url", 255)
 }
@@ -24,7 +23,6 @@ object LookTable : IntIdTable("looks") {
 class LookDao(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<LookDao>(LookTable)
 
-    var userId by LookTable.userId
     var name by LookTable.name
     val lookItems by LookItemDao referrersOn LookItemTable.lookId
     var url by LookTable.url

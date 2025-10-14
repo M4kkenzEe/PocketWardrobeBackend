@@ -7,5 +7,12 @@ interface ClotheRepository {
     suspend fun getClotheByName(name: String, userId: Int): Clothe?
     suspend fun getClotheById(clotheId: Int): Clothe?
     suspend fun getClotheByIdForUser(clotheId: Int, userId: Int): Clothe?
-    suspend fun addClothe(clothe: Clothe): Clothe
+    suspend fun addClothe(
+        clothe: Clothe,
+        season: String? = null,
+        fit: String? = null,
+        material: String? = null,
+        category: String? = null,
+        styleTags: String? = null
+    ): Clothe
 }
