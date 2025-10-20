@@ -119,7 +119,7 @@ fun Application.looks() {
 
                     try {
                         val shareToken = sharedLookRepository.createShareToken(lookId, ownerUserId)
-                        val shareUrl = "pocketwardrobe://share/$shareToken"
+                        val shareUrl = "http://pocketwardrobe/share/$shareToken"
 
                         call.respond(
                             HttpStatusCode.Created,
@@ -143,7 +143,6 @@ fun Application.looks() {
                     } catch (e: Exception) {
                         call.respond(HttpStatusCode.InternalServerError, "error: ${e.localizedMessage}")
                     }
-
                 }
 
                 delete("/{id}") {

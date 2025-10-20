@@ -113,11 +113,17 @@ fun Application.clothes() {
                         ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing or invalid lookId")
 
                     try {
-                        val result = usecase.getClothesByLookId(lookId = lookId, userId)
+                        val result = usecase.getClothesByLookId(lookId = lookId, userId = userId)
                         call.respond(HttpStatusCode.OK, result)
                     } catch (e: Exception) {
                         call.respond(HttpStatusCode.InternalServerError, "Err: ${e.localizedMessage}")
                     }
+                }
+
+                get("/addById") {
+                    val userId = getUserIdOrThrow(call)
+                    val clotheId = call.parameters["clotheId"]?.toIntOrNull()
+
                 }
 
                 delete("/{id}") {
