@@ -26,6 +26,7 @@ fun Application.clothes() {
     val clotheRepository: ClotheRepository by inject()
     val userClotheRepository: UserClotheRepository by inject()
     val removeBgService: RemoveBgService by inject()
+    val clotheAnalysisService: com.example.services.ClotheAnalysisService by inject()
     val usecase: ClotheUseCase by inject()
 
     routing {
@@ -65,13 +66,31 @@ fun Application.clothes() {
                         ?: return@post call.respond(HttpStatusCode.BadRequest, "Missing required fields")
 
                     val mimeType = getMimeType(File(form.originalFileName))
+
+                    // 1. Обработка фона
                     val processedImage =
                         removeBgService.processImage(form.imageBytes, form.originalFileName, mimeType).getOrNull()
                             ?: return@post call.respond(HttpStatusCode.InternalServerError, "Image processing failed")
 
+                    // 2. Анализ одежды
+                    val analysisResult = clotheAnalysisService.analyzeImage(
+                        form.imageBytes,
+                        form.originalFileName,
+                        mimeType
+                    ).getOrNull()
+
                     val imageUrl = saveImage(processedImage)
                     val clothe = Clothe(name = form.name, imageUrl = imageUrl, storeUrl = form.storeUrl)
-                    val saved = clotheRepository.addClothe(clothe)
+
+                    // 3. Сохранение с результатами анализа
+                    val saved = clotheRepository.addClothe(
+                        clothe = clothe,
+                        season = analysisResult?.season,
+                        fit = analysisResult?.fit,
+                        material = analysisResult?.material,
+                        category = analysisResult?.category,
+                        styleTags = analysisResult?.styleTags
+                    )
 
                     // Add clothe to user's wardrobe
                     userClotheRepository.addClotheToUser(userId, saved.id!!)
@@ -118,12 +137,6 @@ fun Application.clothes() {
                     } catch (e: Exception) {
                         call.respond(HttpStatusCode.InternalServerError, "Err: ${e.localizedMessage}")
                     }
-                }
-
-                get("/addById") {
-                    val userId = getUserIdOrThrow(call)
-                    val clotheId = call.parameters["clotheId"]?.toIntOrNull()
-
                 }
 
                 delete("/{id}") {

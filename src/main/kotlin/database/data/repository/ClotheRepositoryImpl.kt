@@ -49,18 +49,25 @@ class ClotheRepositoryImpl : ClotheRepository {
         }
     }
 
-    override suspend fun addClothe(clothe: Clothe): Clothe = suspendTransaction {
+    override suspend fun addClothe(
+        clothe: Clothe,
+        season: String?,
+        fit: String?,
+        material: String?,
+        category: String?,
+        styleTags: String?
+    ): Clothe = suspendTransaction {
         ClotheDao.new {
             name = clothe.name
             imageUrl = clothe.imageUrl.toString()
             storeUrl = clothe.storeUrl.toString()
+            this.season = season
+            this.fit = fit
+            this.material = material
+            this.category = category
+            this.styleTags = styleTags
         }.let { dao ->
-            Clothe(
-                id = dao.id.value,
-                name = dao.name,
-                imageUrl = dao.imageUrl,
-                storeUrl = dao.storeUrl
-            )
+            daoToModel(dao)
         }
     }
 }

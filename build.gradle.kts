@@ -32,6 +32,7 @@ dependencies {
 
     implementation(libs.ktor.server.config.yaml)
     implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.content.negotiation)
 
     implementation(libs.exposed.core)
     implementation(libs.exposed.jdbc)

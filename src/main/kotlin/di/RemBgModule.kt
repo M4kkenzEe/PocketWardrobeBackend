@@ -1,25 +1,43 @@
 package com.example.di
 
+import com.example.auth.EnvironmentConfig
+import com.example.services.ClotheAnalysisService
 import com.example.services.RemoveBgService
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
+import kotlinx.serialization.json.Json
 import org.koin.dsl.module
 
 fun remBgModule(environment: ApplicationEnvironment) = module {
-    single { HttpClient(CIO) }
+    single {
+        HttpClient(CIO) {
+            install(ContentNegotiation) {
+                json(Json {
+                    ignoreUnknownKeys = true
+                    isLenient = true
+                })
+            }
+        }
+    }
 
     single<RemoveBgService> {
-        val config = environment.config
         val url = "http://localhost:8000/"
-//            config.config("ktor").property("url").getString()
         val directory = "uploads"
-//            config.config("ktor").property("outputDir").getString()
 
         RemoveBgService(
             client = get(),
             removeBgServiceUrl = url,
             outputPath = directory
+        )
+    }
+
+    single<ClotheAnalysisService> {
+        ClotheAnalysisService(
+            client = get(),
+            analysisServiceUrl = EnvironmentConfig.analysisServiceUrl
         )
     }
 }

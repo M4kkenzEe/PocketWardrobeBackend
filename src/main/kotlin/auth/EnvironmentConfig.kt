@@ -13,4 +13,5 @@ object EnvironmentConfig {
     val jwtIssuer = dotenv["JWT_ISSUER"] ?: "https://default-issuer.com"
     val jwtAudience = dotenv["JWT_AUDIENCE"] ?: "default-audience"
     val jwtExpiresIn = dotenv["JWT_EXPIRES_IN"]?.toLongOrNull() ?: 3_600_000L
+    val analysisServiceUrl = dotenv["ANALYSIS_SERVICE_URL"] ?: "http://localhost:8088/"
 }
