@@ -34,6 +34,12 @@ class UserRepositoryImpl : UserRepository {
             ?.let { daoToModel(it) }
     }
 
+    override suspend fun findUserByEmail(email: String): User? = suspendTransaction {
+        UserDao.find { UserTable.email eq email }
+            .firstOrNull()
+            ?.let { daoToModel(it) }
+    }
+
     override suspend fun findUserById(userId: Int): User? = suspendTransaction {
         UserDao.find { UserTable.id eq userId }
             .firstOrNull()
@@ -41,10 +47,14 @@ class UserRepositoryImpl : UserRepository {
     }
 
     override suspend fun authenticate(username: String, password: String): User? = suspendTransaction {
-        UserDao.find { UserTable.username eq username }
-            .firstOrNull()
-            ?.takeIf { verifyPassword(password, it.passwordHash) }
-            ?.let { daoToModel(it) }
+        val user = if (username.contains("@")) {
+            // Это email
+            UserDao.find { UserTable.email eq username }.firstOrNull()
+        } else {
+            // Это username
+            UserDao.find { UserTable.username eq username }.firstOrNull()
+        }
+        user?.takeIf { verifyPassword(password, it.passwordHash) }?.let { daoToModel(it) }
     }
 
     private fun verifyPassword(password: String, passwordHash: String): Boolean {

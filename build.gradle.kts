@@ -24,6 +24,12 @@ dependencies {
     implementation(libs.ktor.server.netty)
     implementation(libs.logback.classic)
 
+    // Security and Validation Plugins
+    implementation(libs.ktor.server.status.pages)
+    implementation(libs.ktor.server.cors)
+    implementation(libs.ktor.server.rate.limit)
+    implementation(libs.ktor.server.call.logging)
+
     implementation(libs.koin.ktor)
     implementation(libs.koin.logger)
 
@@ -39,6 +45,9 @@ dependencies {
     implementation(libs.exposed.dao)
     implementation("com.h2database:h2:2.2.224")
     implementation("org.postgresql:postgresql:42.7.7")
+
+    // Database Connection Pooling
+    implementation(libs.hikari.cp)
 
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
