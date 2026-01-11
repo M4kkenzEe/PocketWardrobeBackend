@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # ==================================================================================
+  # PostgreSQL Database
+  # ==================================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: pocketwardrobe_db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-wardrobe}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres1}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - pocketwardrobe_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-wardrobe}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # ==================================================================================
+  # PocketWardrobe Backend Application
+  # ==================================================================================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pocketwardrobe_backend
+    env_file: .env
+    environment:
+      # Docker networking overrides
+      DB_URL: jdbc:postgresql://postgres:5432
+      SERVER_HOST: 0.0.0.0
+      # External services (Mac/Windows use host.docker.internal)
+      REMOVE_BG_SERVICE_URL: http://host.docker.internal:8000/
+      ANALYSIS_SERVICE_URL: http://host.docker.internal:8088/
+    ports:
+      - "8080:8080"
+    volumes:
+      # Bind mounts for persistent user data
+      - ./uploads:/app/uploads
+      - ./looks:/app/looks
+    networks:
+      - pocketwardrobe_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+# ====================================================================================
+# Volumes
+# ====================================================================================
+volumes:
+  postgres_data:
+    driver: local
+
+# ====================================================================================
+# Networks
+# ====================================================================================
+networks:
+  pocketwardrobe_network:
+    driver: bridge

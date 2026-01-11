@@ -24,13 +24,10 @@ fun remBgModule(environment: ApplicationEnvironment) = module {
     }
 
     single<RemoveBgService> {
-        val url = "http://localhost:8000/"
-        val directory = "uploads"
-
         RemoveBgService(
             client = get(),
-            removeBgServiceUrl = url,
-            outputPath = directory
+            removeBgServiceUrl = EnvironmentConfig.removeBgServiceUrl,
+            outputPath = EnvironmentConfig.uploadsDirectory
         )
     }
 

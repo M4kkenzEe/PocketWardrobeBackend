@@ -1,10 +1,5 @@
 package com.example.routes
 
-import com.auth0.jwt.JWT
-import com.auth0.jwt.algorithms.Algorithm
-import com.example.auth.EnvironmentConfig.jwtAudience
-import com.example.auth.EnvironmentConfig.jwtIssuer
-import com.example.auth.EnvironmentConfig.jwtSecret
 import com.example.auth.service.JWTConfig
 import com.example.database.domain.repository.UserRepository
 import io.ktor.server.application.*
@@ -14,38 +9,23 @@ import org.koin.ktor.ext.inject
 
 fun Application.configureSecurity() {
     val userRepository: UserRepository by inject()
+
     authentication {
         jwt {
-            realm = "Secure API"
-//            verifier(
-//                JWT
-//                    .require(Algorithm.HMAC256(jwtSecret))
-//                    .withAudience(jwtAudience)
-//                    .withIssuer(jwtIssuer)
-//                    .build()
-//            )
-
+            realm = "PocketWardrobe API"
             verifier(JWTConfig.verifier())
 
             validate { credential ->
-                credential.payload.getClaim("userId")?.asInt()?.let { userId ->
-                    credential.payload.getClaim("username")?.asString()?.let { username ->
-                        UserPrincipal(userId, username)
-                    }
+                val userId = credential.payload.getClaim("userId")?.asInt()
+                val username = credential.payload.getClaim("username")?.asString()
+
+                if (userId != null && username != null) {
+                    UserPrincipal(userId, username)
+                } else {
+                    application.log.warn("Invalid JWT: missing userId or username")
+                    null
                 }
             }
-
-//            validate { credential ->
-//                val issuer = credential.payload.issuer
-//                val audience = credential.payload.audience
-//
-//                if (issuer == jwtIssuer && audience.contains(jwtAudience)) {
-//                    JWTPrincipal(credential.payload)
-//                } else {
-//                    application.log.error("Invalid JWT: issuer=$issuer, audience=$audience")
-//                    null
-//                }
-//            }
         }
     }
 }

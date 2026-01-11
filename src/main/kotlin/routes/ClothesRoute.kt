@@ -1,5 +1,6 @@
 package com.example.routes
 
+import com.example.auth.EnvironmentConfig
 import com.example.usecases.ClotheUseCase
 import com.example.database.data.model.Clothe
 import com.example.database.domain.repository.ClotheRepository
@@ -10,16 +11,19 @@ import io.ktor.http.content.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.http.content.*
+import io.ktor.server.plugins.ratelimit.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.utils.io.jvm.javaio.*
 import org.koin.ktor.ext.inject
+import io.ktor.server.plugins.ratelimit.RateLimitName
+import validation.FileUploadValidator
 import java.io.File
 import java.nio.file.Path
 import java.util.*
 
-private val uploadsDirPath: Path = Path.of(System.getenv("UPLOADS_DIRECTORY") ?: "uploads").toAbsolutePath()
+private val uploadsDirPath: Path = Path.of(EnvironmentConfig.uploadsDirectory).toAbsolutePath()
 
 
 fun Application.clothes() {
@@ -31,128 +35,145 @@ fun Application.clothes() {
 
     routing {
         staticFiles("/images", uploadsDirPath.toFile())
-        authenticate {
-            route("/clothes") {
-                get {
-                    val userId = getUserIdOrThrow(call)
-                    try {
-                        call.respond(clotheRepository.getAllClothes(userId))
-                    } catch (e: Exception) {
-                        call.respond(HttpStatusCode.InternalServerError, "${e.localizedMessage}")
-                    }
 
-                }
+        // API v1 routes with rate limiting
+        route("/api/v1") {
+            rateLimit(RateLimitName("default")) {
+                authenticate {
+                    route("/clothes") {
+                        // Get all clothes for user
+                        get {
+                            val userId = getUserIdOrThrow(call)
+                            val clothes = clotheRepository.getAllClothes(userId)
+                            call.respond(clothes)
+                        }
 
-                get("/byName/{clotheName}") {
-                    val userId = getUserIdOrThrow(call)
-                    val name = call.parameters["clotheName"]?.takeIf { it.isNotBlank() }
-                        ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing clotheName")
-                    val clothe = clotheRepository.getClotheByName(name, userId)
-                        ?: return@get call.respond(HttpStatusCode.NotFound, "Clothe not found")
-                    call.respond(clothe)
-                }
+                        // Get clothe by name
+                        get("/byName/{clotheName}") {
+                            val userId = getUserIdOrThrow(call)
+                            val name = call.parameters["clotheName"]?.takeIf { it.isNotBlank() }
+                                ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing clotheName")
+                            val clothe = clotheRepository.getClotheByName(name, userId)
+                                ?: return@get call.respond(HttpStatusCode.NotFound, "Clothe not found")
+                            call.respond(clothe)
+                        }
 
-                get("/{id}") {
-                    val id = call.parameters["id"]?.toIntOrNull()
-                        ?: return@get call.respond(HttpStatusCode.BadRequest, "Invalid id")
-                    val clothe = clotheRepository.getClotheById(id)
-                        ?: return@get call.respond(HttpStatusCode.NotFound, "Clothe not found")
-                    call.respond(clothe)
-                }
+                        // Get clothe by ID
+                        get("/{id}") {
+                            val id = call.parameters["id"]?.toIntOrNull()
+                                ?: return@get call.respond(HttpStatusCode.BadRequest, "Invalid id")
+                            val clothe = clotheRepository.getClotheById(id)
+                                ?: return@get call.respond(HttpStatusCode.NotFound, "Clothe not found")
+                            call.respond(clothe)
+                        }
 
-                post {
-                    val userId = getUserIdOrThrow(call)
-                    val form = parseMultipartForm(call)
-                        ?: return@post call.respond(HttpStatusCode.BadRequest, "Missing required fields")
+                        // Get clothes by look ID
+                        get("/byLookId") {
+                            val userId = getUserIdOrThrow(call)
+                            val lookId = call.parameters["lookId"]?.toIntOrNull()
+                                ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing or invalid lookId")
 
-                    val mimeType = getMimeType(File(form.originalFileName))
+                            val result = usecase.getClothesByLookId(lookId = lookId, userId = userId)
+                            call.respond(HttpStatusCode.OK, result)
+                        }
 
-                    // 1. Обработка фона
-                    val processedImage =
-                        removeBgService.processImage(form.imageBytes, form.originalFileName, mimeType).getOrNull()
-                            ?: return@post call.respond(HttpStatusCode.InternalServerError, "Image processing failed")
+                        // Delete clothe from user's wardrobe
+                        delete("/{id}") {
+                            val userId = getUserIdOrThrow(call)
+                            val id = call.parameters["id"]?.toIntOrNull()
+                                ?: return@delete call.respond(HttpStatusCode.BadRequest, "Invalid id")
 
-                    // 2. Анализ одежды
-                    val analysisResult = clotheAnalysisService.analyzeImage(
-                        form.imageBytes,
-                        form.originalFileName,
-                        mimeType
-                    ).getOrNull()
-
-                    val imageUrl = saveImage(processedImage)
-                    val clothe = Clothe(name = form.name, imageUrl = imageUrl, storeUrl = form.storeUrl)
-
-                    // 3. Сохранение с результатами анализа
-                    val saved = clotheRepository.addClothe(
-                        clothe = clothe,
-                        season = analysisResult?.season,
-                        fit = analysisResult?.fit,
-                        material = analysisResult?.material,
-                        category = analysisResult?.category,
-                        styleTags = analysisResult?.styleTags
-                    )
-
-                    // Add clothe to user's wardrobe
-                    userClotheRepository.addClotheToUser(userId, saved.id!!)
-
-                    val result = clotheRepository.getClotheById(saved.id)
-                        ?: return@post call.respond(
-                            HttpStatusCode.InternalServerError,
-                            "Failed to retrieve created clothe"
-                        )
-                    call.respond(HttpStatusCode.Created, result)
-                }
-
-                get("/from_url") {
-                    val userId = getUserIdOrThrow(call)
-                    val url = call.parameters["url"]?.takeIf { it.isNotBlank() }
-                        ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing url")
-
-                    val imageFile = removeBgService.getImageFromUrl(url).getOrNull()
-                        ?: return@get call.respond(HttpStatusCode.InternalServerError, "Image download failed")
-
-                    val imageUrl = saveImage(imageFile.readBytes())
-                    val clothe = Clothe(name = "", imageUrl = imageUrl, storeUrl = url)
-                    val saved = clotheRepository.addClothe(clothe)
-
-                    // Add clothe to user's wardrobe
-                    userClotheRepository.addClotheToUser(userId, saved.id!!)
-
-                    val result = clotheRepository.getClotheById(saved.id)
-                        ?: return@get call.respond(
-                            HttpStatusCode.InternalServerError,
-                            "Failed to retrieve created clothe"
-                        )
-                    call.respond(HttpStatusCode.Created, result)
-                }
-
-                get("/byLookId") {
-                    val userId = getUserIdOrThrow(call)
-                    val lookId = call.parameters["lookId"]?.toIntOrNull()
-                        ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing or invalid lookId")
-
-                    try {
-                        val result = usecase.getClothesByLookId(lookId = lookId, userId = userId)
-                        call.respond(HttpStatusCode.OK, result)
-                    } catch (e: Exception) {
-                        call.respond(HttpStatusCode.InternalServerError, "Err: ${e.localizedMessage}")
+                            if (userClotheRepository.removeClotheFromUser(userId, id)) {
+                                call.respond(HttpStatusCode.NoContent)
+                            } else {
+                                call.respond(HttpStatusCode.NotFound, "Clothe not found in user's wardrobe")
+                            }
+                        }
                     }
                 }
+            }
 
-                delete("/{id}") {
-                    val userId = getUserIdOrThrow(call)
-                    val id = call.parameters["id"]?.toIntOrNull()
-                        ?: return@delete call.respond(HttpStatusCode.BadRequest, "Invalid id")
+            // Upload endpoints with stricter rate limiting
+            rateLimit(RateLimitName("upload")) {
+                authenticate {
+                    route("/clothes") {
+                        // Upload new clothe with image
+                        post {
+                            val userId = getUserIdOrThrow(call)
+                            val form = parseMultipartForm(call)
+                                ?: return@post call.respond(HttpStatusCode.BadRequest, "Missing required fields")
 
-                    if (userClotheRepository.removeClotheFromUser(userId, id)) {
-                        call.respond(HttpStatusCode.NoContent)
-                    } else {
-                        call.respond(HttpStatusCode.NotFound, "Clothe not found in user's wardrobe")
+                            // Validate file
+                            FileUploadValidator.validateFileBytes(form.imageBytes, form.contentType)
+
+                            val mimeType = getMimeType(File(form.originalFileName))
+
+                            // 1. Background removal
+                            val processedImage =
+                                removeBgService.processImage(form.imageBytes, form.originalFileName, mimeType)
+                                    .getOrNull()
+                                    ?: return@post call.respond(
+                                        HttpStatusCode.InternalServerError,
+                                        "Image processing failed"
+                                    )
+
+                            // 2. Clothe analysis
+                            val analysisResult = clotheAnalysisService.analyzeImage(
+                                form.imageBytes,
+                                form.originalFileName,
+                                mimeType
+                            ).getOrNull()
+
+                            val imageUrl = saveImage(processedImage)
+                            val clothe = Clothe(name = form.name, imageUrl = imageUrl, storeUrl = form.storeUrl)
+
+                            // 3. Save with analysis results
+                            val saved = clotheRepository.addClothe(
+                                clothe = clothe,
+                                season = analysisResult?.season,
+                                fit = analysisResult?.fit,
+                                material = analysisResult?.material,
+                                category = analysisResult?.category,
+                                styleTags = analysisResult?.styleTags
+                            )
+
+                            // Add clothe to user's wardrobe
+                            userClotheRepository.addClotheToUser(userId, saved.id!!)
+
+                            val result = clotheRepository.getClotheById(saved.id)
+                                ?: throw NoSuchElementException("Failed to retrieve created clothe")
+
+                            call.respond(HttpStatusCode.Created, result)
+                        }
+
+                        // Add clothe from URL
+                        get("/from_url") {
+                            val userId = getUserIdOrThrow(call)
+                            val url = call.parameters["url"]?.takeIf { it.isNotBlank() }
+                                ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing url")
+
+                            val imageFile = removeBgService.getImageFromUrl(url).getOrNull()
+                                ?: return@get call.respond(HttpStatusCode.InternalServerError, "Image download failed")
+
+                            val imageUrl = saveImage(imageFile.readBytes())
+                            val clothe = Clothe(name = "", imageUrl = imageUrl, storeUrl = url)
+                            val saved = clotheRepository.addClothe(clothe)
+
+                            // Add clothe to user's wardrobe
+                            userClotheRepository.addClotheToUser(userId, saved.id!!)
+
+                            val result = clotheRepository.getClotheById(saved.id)
+                                ?: throw NoSuchElementException("Failed to retrieve created clothe")
+
+                            call.respond(HttpStatusCode.Created, result)
+                        }
                     }
                 }
             }
         }
     }
+
+    log.info("✓ Clothes routes configured at /api/v1/clothes")
 }
 
 
@@ -172,14 +193,15 @@ private fun getUserIdOrThrow(call: ApplicationCall): Int =
 private fun saveImage(bytes: ByteArray): String {
     val fileName = "${UUID.randomUUID()}.png"
     File("$uploadsDirPath/$fileName").writeBytes(bytes)
-    return "http://localhost:8080/images/$fileName"
+    return "${EnvironmentConfig.getServerBaseUrl()}/images/$fileName"
 }
 
 private data class MultipartForm(
     val name: String,
     val storeUrl: String,
     val imageBytes: ByteArray,
-    val originalFileName: String
+    val originalFileName: String,
+    val contentType: String?
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -191,6 +213,7 @@ private data class MultipartForm(
         if (storeUrl != other.storeUrl) return false
         if (!imageBytes.contentEquals(other.imageBytes)) return false
         if (originalFileName != other.originalFileName) return false
+        if (contentType != other.contentType) return false
 
         return true
     }
@@ -200,6 +223,7 @@ private data class MultipartForm(
         result = 31 * result + storeUrl.hashCode()
         result = 31 * result + imageBytes.contentHashCode()
         result = 31 * result + originalFileName.hashCode()
+        result = 31 * result + (contentType?.hashCode() ?: 0)
         return result
     }
 }
@@ -209,6 +233,7 @@ private suspend fun parseMultipartForm(call: ApplicationCall): MultipartForm? {
     var storeUrl: String? = null
     var imageBytes: ByteArray? = null
     var originalFileName: String? = null
+    var contentType: String? = null
 
     call.receiveMultipart().forEachPart { part ->
         when (part) {
@@ -219,6 +244,7 @@ private suspend fun parseMultipartForm(call: ApplicationCall): MultipartForm? {
 
             is PartData.FileItem -> if (part.name == "image") {
                 originalFileName = part.originalFileName ?: "image.png"
+                contentType = part.contentType?.toString()
                 imageBytes = part.provider().toInputStream().readBytes()
             }
 
@@ -228,6 +254,6 @@ private suspend fun parseMultipartForm(call: ApplicationCall): MultipartForm? {
     }
 
     return if (name != null && storeUrl != null && imageBytes != null && originalFileName != null) {
-        MultipartForm(name, storeUrl, imageBytes, originalFileName)
+        MultipartForm(name, storeUrl, imageBytes, originalFileName, contentType)
     } else null
 }
