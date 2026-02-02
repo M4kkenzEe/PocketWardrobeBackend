@@ -1,0 +1,245 @@
+openapi: 3.0.3
+info:
+  title: PocketWardrobe Auth API
+  description: API для авторизации и аутентификации пользователей
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: Auth
+    description: Аутентификация и авторизация
+
+paths:
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Регистрация нового пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Пользователь успешно зарегистрирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '409':
+          description: Пользователь уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Вход в систему
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешный вход
+          headers:
+            Set-Cookie:
+              description: HttpOnly cookie с refresh token
+              schema:
+                type: string
+                example: refresh_token=abc123; HttpOnly; Secure; SameSite=Strict; Path=/api/auth
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Неверные учетные данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+
+  /api/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Обновление токенов
+      description: |
+        Использует refresh token из cookie или тела запроса.
+        Выполняет ротацию токенов - старый refresh token удаляется.
+      parameters:
+        - name: refresh_token
+          in: cookie
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Токены обновлены
+          headers:
+            Set-Cookie:
+              description: Новый HttpOnly cookie с refresh token
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshResponse'
+        '401':
+          description: Невалидный или истёкший refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Выход из системы
+      description: Удаляет refresh token из БД и очищает cookie
+      parameters:
+        - name: refresh_token
+          in: cookie
+          required: false
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Успешный выход
+          headers:
+            Set-Cookie:
+              description: Очистка cookie
+              schema:
+                type: string
+                example: refresh_token=; Max-Age=0; Path=/api/auth
+
+  /api/auth/logout-all:
+    post:
+      tags: [Auth]
+      summary: Выход со всех устройств
+      description: Удаляет все refresh токены пользователя
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Успешный выход со всех устройств
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Logged out from all devices
+                  sessions_revoked:
+                    type: integer
+                    example: 3
+        '401':
+          description: Требуется авторизация
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [username, email, password]
+      properties:
+        username:
+          type: string
+          example: testuser
+        email:
+          type: string
+          format: email
+          example: test@example.com
+        password:
+          type: string
+          format: password
+          example: SecurePass123!
+        gender:
+          type: string
+          nullable: true
+          example: male
+
+    RegisterResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: User registered successfully
+        userId:
+          type: integer
+          example: 1
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: test@example.com
+        password:
+          type: string
+          format: password
+          example: SecurePass123!
+
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refresh_token:
+          type: string
+          example: abc123xyz789...
+        expires_in:
+          type: integer
+          description: Время жизни access token в секундах
+          example: 900
+        token_type:
+          type: string
+          example: Bearer
+
+    RefreshResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refresh_token:
+          type: string
+          example: newtoken789abc...
+        expires_in:
+          type: integer
+          example: 900
+        token_type:
+          type: string
+          example: Bearer
+
+    AuthErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: invalid_credentials
+        message:
+          type: string
+          example: Invalid email or password

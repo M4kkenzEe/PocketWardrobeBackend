@@ -49,6 +49,10 @@ dependencies {
     // Database Connection Pooling
     implementation(libs.hikari.cp)
 
+    // Swagger/OpenAPI
+    implementation(libs.ktor.server.swagger)
+    implementation(libs.ktor.server.openapi)
+
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
 }

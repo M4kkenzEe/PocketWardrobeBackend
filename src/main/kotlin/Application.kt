@@ -43,6 +43,8 @@ fun Application.module() {
     // 5. Register routes
     configureHealth()              // Health check endpoint
     configureRouting()
+    configureSwagger()             // Swagger UI at /swagger
+    authRoutes()                   // Auth routes with refresh tokens (/api/auth/*)
     clothes()
     looks()
     sharedLooks()

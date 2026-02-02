@@ -30,6 +30,20 @@ object EnvironmentConfig {
         require(it > 0) { "JWT_EXPIRES_IN must be positive" }
     } ?: throw IllegalStateException("JWT_EXPIRES_IN is required in environment")
 
+    // Access Token Configuration (short-lived)
+    val accessTokenExpiresIn: Long = getEnv("ACCESS_TOKEN_EXPIRES_IN")?.toLongOrNull()?.also {
+        require(it > 0) { "ACCESS_TOKEN_EXPIRES_IN must be positive" }
+    } ?: (15 * 60 * 1000L)  // Default: 15 minutes
+
+    // Refresh Token Configuration (long-lived)
+    val refreshTokenExpiresIn: Long = getEnv("REFRESH_TOKEN_EXPIRES_IN")?.toLongOrNull()?.also {
+        require(it > 0) { "REFRESH_TOKEN_EXPIRES_IN must be positive" }
+    } ?: (7 * 24 * 60 * 60 * 1000L)  // Default: 7 days
+
+    // Cookie Configuration
+    val cookieSecure: Boolean = getEnv("COOKIE_SECURE")?.toBoolean() ?: true
+    val cookieSameSite: String = getEnv("COOKIE_SAME_SITE") ?: "Strict"
+
     // Database Configuration
     val dbUrl: String = getEnv("DB_URL")?.also {
         require(it.isNotBlank()) { "DB_URL cannot be blank" }
