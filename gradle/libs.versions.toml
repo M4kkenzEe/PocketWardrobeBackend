@@ -45,6 +45,10 @@ postgresql = { module = "org.postgresql:postgresql", version.ref = "postgres-ver
 # Database Connection Pooling
 hikari-cp = { module = "com.zaxxer:HikariCP", version.ref = "hikari-version" }
 
+# Swagger/OpenAPI
+ktor-server-swagger = { module = "io.ktor:ktor-server-swagger", version.ref = "ktor-version" }
+ktor-server-openapi = { module = "io.ktor:ktor-server-openapi", version.ref = "ktor-version" }
+
 
 
 
