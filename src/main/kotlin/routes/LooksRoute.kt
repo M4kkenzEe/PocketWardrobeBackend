@@ -1,5 +1,6 @@
 package com.example.routes
 
+import com.example.auth.model.UserPrincipal
 import com.example.auth.EnvironmentConfig
 import com.example.database.data.model.Look
 import com.example.database.data.model.ShareLinkResponse
@@ -58,7 +59,7 @@ fun Application.looks() {
                                 val lookId = lookRepository.addLook(look, userId, "")
 
                                 call.respond(HttpStatusCode.Created, mapOf("id" to lookId))
-                            } catch (e: ContentTransformationException) {
+                            } catch (_: ContentTransformationException) {
                                 call.respond(HttpStatusCode.BadRequest, "Invalid request body")
                             }
                         }

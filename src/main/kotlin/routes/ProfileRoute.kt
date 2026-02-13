@@ -1,5 +1,6 @@
 package com.example.routes
 
+import com.example.auth.model.UserPrincipal
 import com.example.database.domain.repository.UserRepository
 import com.example.profile.toProfileResponse
 import io.ktor.server.application.Application

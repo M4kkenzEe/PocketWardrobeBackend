@@ -30,6 +30,14 @@ object EnvironmentConfig {
         require(it > 0) { "JWT_EXPIRES_IN must be positive" }
     } ?: throw IllegalStateException("JWT_EXPIRES_IN is required in environment")
 
+    val jwtAccessExpiresIn: Long = getEnv("JWT_ACCESS_EXPIRES_IN")?.toLongOrNull()?.also {
+        require(it > 0) { "JWT_ACCESS_EXPIRES_IN must be positive" }
+    } ?: 900_000L // 15 minutes
+
+    val jwtRefreshExpiresIn: Long = getEnv("JWT_REFRESH_EXPIRES_IN")?.toLongOrNull()?.also {
+        require(it > 0) { "JWT_REFRESH_EXPIRES_IN must be positive" }
+    } ?: 2_592_000_000L // 30 days
+
     // Database Configuration
     val dbUrl: String = getEnv("DB_URL")?.also {
         require(it.isNotBlank()) { "DB_URL cannot be blank" }

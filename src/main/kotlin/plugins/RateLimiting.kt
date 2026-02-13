@@ -1,11 +1,10 @@
 package plugins
 
 import com.example.auth.EnvironmentConfig
-import com.example.routes.UserPrincipal
+import com.example.auth.model.UserPrincipal
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.plugins.ratelimit.*
-import io.ktor.server.request.*
 import kotlin.time.Duration.Companion.minutes
 
 /**

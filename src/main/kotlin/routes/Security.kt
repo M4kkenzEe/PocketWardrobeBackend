@@ -1,5 +1,6 @@
 package com.example.routes
 
+import com.example.auth.model.UserPrincipal
 import com.example.auth.service.JWTConfig
 import com.example.database.domain.repository.UserRepository
 import io.ktor.server.application.*
@@ -8,8 +9,6 @@ import io.ktor.server.auth.jwt.*
 import org.koin.ktor.ext.inject
 
 fun Application.configureSecurity() {
-    val userRepository: UserRepository by inject()
-
     authentication {
         jwt {
             realm = "PocketWardrobe API"
