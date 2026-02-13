@@ -1,5 +1,6 @@
 package com.example.routes
 
+import com.example.auth.model.UserPrincipal
 import com.example.auth.EnvironmentConfig
 import com.example.usecases.ClotheUseCase
 import com.example.database.data.model.Clothe
