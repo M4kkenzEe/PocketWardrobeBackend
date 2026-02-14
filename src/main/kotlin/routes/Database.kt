@@ -4,7 +4,7 @@ import com.example.auth.EnvironmentConfig
 import com.example.database.data.model.ClotheTable
 import com.example.database.data.model.LookItemTable
 import com.example.database.data.model.LookTable
-import com.example.database.data.model.RevokedTokenTable
+import com.example.database.data.model.RefreshTokenTable
 import com.example.database.data.model.SharedLookTable
 import com.example.database.data.model.UserClotheTable
 import com.example.database.data.model.UserLookTable
@@ -65,7 +65,7 @@ fun Application.configureDatabase() {
             UserLookTable,
             LookItemTable,
             SharedLookTable,
-            RevokedTokenTable
+            RefreshTokenTable
         )
     }
 

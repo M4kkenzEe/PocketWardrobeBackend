@@ -30,13 +30,19 @@ object EnvironmentConfig {
         require(it > 0) { "JWT_EXPIRES_IN must be positive" }
     } ?: throw IllegalStateException("JWT_EXPIRES_IN is required in environment")
 
-    val jwtAccessExpiresIn: Long = getEnv("JWT_ACCESS_EXPIRES_IN")?.toLongOrNull()?.also {
-        require(it > 0) { "JWT_ACCESS_EXPIRES_IN must be positive" }
-    } ?: 900_000L // 15 minutes
+    // Access Token Configuration (short-lived)
+    val accessTokenExpiresIn: Long = getEnv("ACCESS_TOKEN_EXPIRES_IN")?.toLongOrNull()?.also {
+        require(it > 0) { "ACCESS_TOKEN_EXPIRES_IN must be positive" }
+    } ?: (15 * 60 * 1000L)  // Default: 15 minutes
 
-    val jwtRefreshExpiresIn: Long = getEnv("JWT_REFRESH_EXPIRES_IN")?.toLongOrNull()?.also {
-        require(it > 0) { "JWT_REFRESH_EXPIRES_IN must be positive" }
-    } ?: 2_592_000_000L // 30 days
+    // Refresh Token Configuration (long-lived)
+    val refreshTokenExpiresIn: Long = getEnv("REFRESH_TOKEN_EXPIRES_IN")?.toLongOrNull()?.also {
+        require(it > 0) { "REFRESH_TOKEN_EXPIRES_IN must be positive" }
+    } ?: (7 * 24 * 60 * 60 * 1000L)  // Default: 7 days
+
+    // Cookie Configuration
+    val cookieSecure: Boolean = getEnv("COOKIE_SECURE")?.toBoolean() ?: true
+    val cookieSameSite: String = getEnv("COOKIE_SAME_SITE") ?: "Strict"
 
     // Database Configuration
     val dbUrl: String = getEnv("DB_URL")?.also {

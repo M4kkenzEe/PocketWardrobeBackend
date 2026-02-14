@@ -1,9 +1,10 @@
 package com.example.di
 
-import com.example.database.data.repository.RevokedTokenRepositoryImpl
-import com.example.database.domain.repository.RevokedTokenRepository
+import com.example.auth.service.JwtService
+import com.example.auth.service.TokenService
 import org.koin.dsl.module
 
 val authModule = module {
-    factory<RevokedTokenRepository> { RevokedTokenRepositoryImpl() }
+    single { JwtService() }  // Keep for backward compatibility
+    single { TokenService() }
 }
