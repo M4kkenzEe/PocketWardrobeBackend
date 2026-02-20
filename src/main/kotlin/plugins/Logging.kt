@@ -45,12 +45,8 @@ fun Application.configureLogging() {
             }
         }
 
-        // Filter sensitive endpoints from detailed logging (optional)
         filter { call ->
-            val path = call.request.path()
-            // Log all requests, but you can filter sensitive endpoints here
-            // For example: !path.startsWith("/admin/secrets")
-            true
+            call.request.path() != "/health"
         }
     }
 
