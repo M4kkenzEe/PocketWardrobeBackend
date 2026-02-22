@@ -71,7 +71,7 @@ object EnvironmentConfig {
     val appScheme: String = getEnv("APP_SCHEME") ?: "pocketwardrobe"
     val appHost: String = getEnv("APP_HOST") ?: "share"
 
-    fun getAppDeepLinkBase(): String = "$appScheme://$appHost"
+    fun getAppDeepLinkBase(): String = "http://$appScheme/$appHost"
 
     // External Services Configuration
     val removeBgServiceUrl: String = getEnv("REMOVE_BG_SERVICE_URL")?.also {

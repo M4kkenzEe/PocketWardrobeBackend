@@ -30,8 +30,10 @@ fun Application.sharedLooks() {
                     val sharedLook = sharedLookRepository.getLookByShareToken(shareToken)
 
                     if (sharedLook == null) {
+                        log.info("[404] GET /share/$shareToken - not found")
                         call.respond(HttpStatusCode.NotFound, "Shared link not found or expired")
                     } else {
+                        log.info("[200] GET /share/$shareToken - ok")
                         call.respond(HttpStatusCode.OK, sharedLook)
                     }
                 }
@@ -51,8 +53,10 @@ fun Application.sharedLooks() {
                         val revoked = sharedLookRepository.revokeShareToken(shareToken, ownerUserId)
 
                         if (revoked) {
+                            log.info("[204] DELETE /share/$shareToken - revoked by userId=$ownerUserId")
                             call.respond(HttpStatusCode.NoContent)
                         } else {
+                            log.warn("[404] DELETE /share/$shareToken - not found or not owner, userId=$ownerUserId")
                             call.respond(HttpStatusCode.NotFound, "Share token not found or you are not the owner")
                         }
                     }
@@ -66,12 +70,14 @@ fun Application.sharedLooks() {
                             ?: return@post call.respond(HttpStatusCode.BadRequest, "Missing shareToken")
 
                         val request = call.receive<ImportRequest>()
+                        log.info("[?] POST /share/$shareToken/import userId=$receiverUserId type=${request.importType}")
 
                         when (request.importType) {
                             ImportType.FULL_LOOK -> {
                                 importUseCase.importFullLook(shareToken, receiverUserId)
                                     .fold(
                                         onSuccess = { lookId ->
+                                            log.info("[201] POST /share/$shareToken/import - full look imported, lookId=$lookId userId=$receiverUserId")
                                             call.respond(HttpStatusCode.Created, mapOf("lookId" to lookId))
                                         },
                                         onFailure = { e ->
@@ -91,6 +97,7 @@ fun Application.sharedLooks() {
                                 importUseCase.importSelectedClothes(shareToken, request.clotheIds, receiverUserId)
                                     .fold(
                                         onSuccess = { clotheIds ->
+                                            log.info("[201] POST /share/$shareToken/import - ${clotheIds.size} items imported, userId=$receiverUserId")
                                             call.respond(HttpStatusCode.Created, mapOf("clotheIds" to clotheIds))
                                         },
                                         onFailure = { e ->
@@ -104,5 +111,4 @@ fun Application.sharedLooks() {
             }
         }
     }
-    log.info("✓ Shared looks routes configured at /api/v1/share")
 }
