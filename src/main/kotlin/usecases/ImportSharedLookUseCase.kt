@@ -7,7 +7,9 @@ import com.example.database.domain.repository.ClotheRepository
 import com.example.database.domain.repository.LookRepository
 import com.example.database.domain.repository.SharedLookRepository
 import com.example.database.domain.repository.UserClotheRepository
+import com.example.auth.EnvironmentConfig
 import java.io.File
+import java.net.URI
 import java.util.*
 
 class ImportSharedLookUseCase(
@@ -145,12 +147,8 @@ class ImportSharedLookUseCase(
         if (sourceUrl == null || sourceUrl.isBlank()) return null
 
         try {
-            // Extract URL path from full URL: "http://localhost:8080/images/uuid.png" -> "images/uuid.png"
-            val urlPath = sourceUrl.substringAfter("http://localhost:8080/")
-            if (urlPath == sourceUrl) {
-                // URL doesn't contain expected prefix
-                throw IllegalArgumentException("Invalid image URL format: $sourceUrl")
-            }
+            // Extract URL path from full URL regardless of host/port
+            val urlPath = URI(sourceUrl).path.trimStart('/')
 
             // Map URL path to physical directory
             // "/images/*" is served from "uploads/" directory
@@ -190,7 +188,7 @@ class ImportSharedLookUseCase(
                 else -> targetDir
             }
 
-            return "http://localhost:8080/$urlPrefix/$newFileName"
+            return "${EnvironmentConfig.getServerBaseUrl()}/$urlPrefix/$newFileName"
         } catch (e: Exception) {
             throw Exception("Failed to copy image file from '$sourceUrl' to '$targetDir': ${e.message}", e)
         }
