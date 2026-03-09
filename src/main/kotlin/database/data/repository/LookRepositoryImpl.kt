@@ -21,10 +21,11 @@ class LookRepositoryImpl : LookRepository {
         LookDao.find { LookTable.id inList lookIds }.map(::daoToModel)
     }
 
-    override suspend fun addLook(look: Look, userId: Int, imageUrl: String): Int = suspendTransaction {
+    override suspend fun addLook(look: Look, userId: Int, imageUrl: String, generatedByAi: Boolean): Int = suspendTransaction {
         val newLook = LookDao.new {
             this.name = look.name
             this.url = look.url
+            this.generatedByAi = generatedByAi
         }
 
         look.lookItems.forEach { item ->
@@ -50,6 +51,10 @@ class LookRepositoryImpl : LookRepository {
         newLook.id.value
     }
 
+    override suspend fun updateLookUrl(lookId: Int, url: String) = suspendTransaction {
+        LookDao.findById(lookId)?.url = url
+    }
+
     override suspend fun getLookById(lookId: Int, userId: Int): Look = suspendTransaction {
         // Check if user has access to this look (and it's not deleted)
         val userLook = UserLookDao.find {
@@ -71,9 +76,15 @@ class LookRepositoryImpl : LookRepository {
         // Get the look IDs
         val lookIds = userLooks.map { it.lookId.value }
 
-        // Fetch the actual looks and convert to previews
-        val looks = LookDao.find { LookTable.id inList lookIds }.map(::daoToModel)
-        looks.map { LookPreview.toPreview(it) }
+        // Fetch the actual looks and map directly from DAO to preserve generatedByAi
+        LookDao.find { LookTable.id inList lookIds }.map { dao ->
+            LookPreview(
+                id = dao.id.value,
+                url = dao.url,
+                name = dao.name,
+                generatedByAi = dao.generatedByAi
+            )
+        }
     }
 }
 

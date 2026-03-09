@@ -82,6 +82,8 @@ object EnvironmentConfig {
         require(it.isNotBlank()) { "ANALYSIS_SERVICE_URL cannot be blank" }
     } ?: throw IllegalStateException("ANALYSIS_SERVICE_URL is required in environment")
 
+    val lookGenerationServiceUrl: String = getEnv("LOOK_GENERATION_SERVICE_URL") ?: "http://localhost:8001"
+
     // File Storage Configuration
     val uploadsDirectory: String = getEnv("UPLOADS_DIRECTORY") ?: "uploads"
     val looksDirectory: String = getEnv("LOOKS_DIRECTORY") ?: "looks"

@@ -1,0 +1,52 @@
+# Gradle build artifacts
+.gradle/
+build/
+!build/libs/*-all.jar
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# User data directories (should be volume-mounted)
+uploads/
+looks/
+
+# Logs
+*.log
+logs/
+
+# Documentation (keep CLAUDE.md for reference)
+*.md
+!CLAUDE.md
+!README.md
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.swp
+*.swo
+*~
+.tmp/
+tmp/
+
+# Test files
+.test/
+
+# Gradle wrapper jar (included in image)
+# gradle/wrapper/gradle-wrapper.jar

@@ -18,6 +18,7 @@ data class Look(
 object LookTable : IntIdTable("looks") {
     val name = varchar("name", 50)
     val url = varchar("url", 255)
+    val generatedByAi = bool("generated_by_ai").default(false)
 }
 
 class LookDao(id: EntityID<Int>) : IntEntity(id) {
@@ -26,6 +27,7 @@ class LookDao(id: EntityID<Int>) : IntEntity(id) {
     var name by LookTable.name
     val lookItems by LookItemDao referrersOn LookItemTable.lookId
     var url by LookTable.url
+    var generatedByAi by LookTable.generatedByAi
 }
 
 fun daoToModel(dao: LookDao): Look = Look(
