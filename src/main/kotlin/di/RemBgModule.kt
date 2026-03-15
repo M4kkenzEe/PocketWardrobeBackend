@@ -2,6 +2,7 @@ package com.example.di
 
 import com.example.auth.EnvironmentConfig
 import com.example.services.ClotheAnalysisService
+import com.example.services.GenerateLookService
 import com.example.services.RemoveBgService
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
@@ -35,6 +36,13 @@ fun remBgModule(environment: ApplicationEnvironment) = module {
         ClotheAnalysisService(
             client = get(),
             analysisServiceUrl = EnvironmentConfig.analysisServiceUrl
+        )
+    }
+
+    single<GenerateLookService> {
+        GenerateLookService(
+            client = get(),
+            generateLookServiceUrl = EnvironmentConfig.lookGenerationServiceUrl
         )
     }
 }

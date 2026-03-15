@@ -7,7 +7,8 @@ import kotlinx.serialization.Serializable
 data class LookPreview(
     val id: Int,
     val url: String = "",
-    val name: String
+    val name: String,
+    val generatedByAi: Boolean = false
 ) {
     companion object {
         fun toPreview(look: Look): LookPreview {

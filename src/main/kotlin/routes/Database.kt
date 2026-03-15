@@ -67,6 +67,8 @@ fun Application.configureDatabase() {
             SharedLookTable,
             RevokedTokenTable
         )
+        // Add new columns to existing tables (safe, idempotent)
+        exec("ALTER TABLE looks ADD COLUMN IF NOT EXISTS generated_by_ai BOOLEAN DEFAULT FALSE NOT NULL")
     }
 
     log.info("✓ Database configured successfully")

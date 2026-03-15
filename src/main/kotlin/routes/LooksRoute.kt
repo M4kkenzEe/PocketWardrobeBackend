@@ -7,6 +7,7 @@ import com.example.database.data.model.ShareLinkResponse
 import com.example.database.domain.repository.LookRepository
 import com.example.database.domain.repository.SharedLookRepository
 import com.example.database.domain.repository.UserLookRepository
+import com.example.usecases.GenerateLookUseCase
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
@@ -28,6 +29,7 @@ fun Application.looks() {
     val lookRepository: LookRepository by inject()
     val sharedLookRepository: SharedLookRepository by inject()
     val userLookRepository: UserLookRepository by inject()
+    val generateLookUseCase: GenerateLookUseCase by inject()
     routing {
         staticFiles("/looks", File(EnvironmentConfig.looksDirectory))
         authenticate {
@@ -135,6 +137,13 @@ fun Application.looks() {
                     }
 
                     rateLimit(RateLimitName("default")) {
+                        get("/generate") {
+                            val userId = call.principal<UserPrincipal>()?.userId
+                                ?: throw IllegalStateException("User not authenticated")
+                            val lookIds = generateLookUseCase.generateAndSaveLooks(userId)
+                            call.respond(HttpStatusCode.OK, mapOf("lookIds" to lookIds))
+                        }
+
                         get("/byId/{lookId}") {
                             val userId = call.principal<UserPrincipal>()?.userId
                                 ?: throw IllegalStateException("User not authenticated")
