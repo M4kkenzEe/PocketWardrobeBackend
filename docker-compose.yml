@@ -42,6 +42,7 @@ services:
       # External services (Mac/Windows use host.docker.internal)
       REMOVE_BG_SERVICE_URL: http://removebg:8000/
       ANALYSIS_SERVICE_URL: http://ai-analyzer:8088/
+      RECOMMENDATION_SERVICE_URL: http://recommendation:8001/
     ports:
       - "8080:8080"
     volumes:
@@ -87,6 +88,34 @@ services:
       - pocketwardrobe_network
     restart: unless-stopped
     command: uvicorn main:app --host 0.0.0.0 --port 8088 --reload
+
+  # ==================================================================================
+  # Recommendation AI Service
+  # ==================================================================================
+  recommendation:
+    image: yura91191/recommendation-service:amd64
+    container_name: recommendation-service
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-wardrobe}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres1}
+    ports:
+      - "8001:8001"
+    networks:
+      - pocketwardrobe_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8001/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
   nginx:
     image: nginx:stable-alpine
