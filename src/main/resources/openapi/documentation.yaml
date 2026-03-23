@@ -1,0 +1,1184 @@
+openapi: "3.0.3"
+info:
+  title: PocketWardrobe API
+  version: "1.0.0"
+  description: |
+    REST API for the PocketWardrobe mobile app.
+
+    **Authentication**: Protected endpoints require a Bearer JWT access token
+    obtained from `/api/v1/login` or `/api/v1/register`.
+
+    Access tokens expire in **15 minutes**. Use `/api/v1/refresh` to obtain
+    a new pair without re-authenticating.
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: Auth
+    description: Registration, login, token refresh and logout (rate-limited 10 req/min per IP)
+  - name: Clothes
+    description: Wardrobe item management — JWT required (default 100 req/min; upload endpoints 20 req/min)
+  - name: Looks
+    description: Outfit composition and sharing — JWT required (default 100 req/min; upload endpoints 20 req/min)
+  - name: Shared Looks
+    description: Public look preview and import
+  - name: Profile
+    description: Authenticated user profile — JWT required
+  - name: Health
+    description: Service liveness and readiness
+
+# ─── Security scheme ─────────────────────────────────────────────────────────
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Paste the `accessToken` value from the login/register response.
+        The token is a HMAC256-signed JWT with a 15-minute TTL.
+        Claims: `userId` (Int), `username` (String).
+
+  # ─── Schemas ─────────────────────────────────────────────────────────────
+  schemas:
+
+    # ── Auth ──────────────────────────────────────────────────────────────
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "alice@example.com"
+        password:
+          type: string
+          minLength: 8
+          example: "s3cur3P@ss"
+        username:
+          type: string
+          nullable: true
+          example: "alice_w"
+        gender:
+          type: string
+          nullable: true
+          enum: [MALE, FEMALE, OTHER]
+          example: "FEMALE"
+
+    LoginRequest:
+      type: object
+      required: [login, password]
+      properties:
+        login:
+          type: string
+          description: Email or username
+          example: "alice@example.com"
+        password:
+          type: string
+          example: "s3cur3P@ss"
+
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiJ9.refresh.XXXX"
+
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiJ9.access.YYYY"
+        refreshToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiJ9.refresh.XXXX"
+        expiresAt:
+          type: integer
+          format: int64
+          description: Unix timestamp (ms) when the access token expires
+          example: 1711200900000
+        userId:
+          type: integer
+          format: int32
+          example: 1
+
+    # ── Clothes ───────────────────────────────────────────────────────────
+    Clothe:
+      type: object
+      required: [name]
+      properties:
+        id:
+          type: integer
+          format: int32
+          nullable: true
+          example: 42
+        imageUrl:
+          type: string
+          nullable: true
+          example: "http://localhost:8080/images/3f2a1b4c.png"
+        name:
+          type: string
+          example: "White Oxford Shirt"
+        storeUrl:
+          type: string
+          nullable: true
+          example: "https://store.example.com/white-oxford"
+        season:
+          type: string
+          nullable: true
+          example: "SUMMER"
+        fit:
+          type: string
+          nullable: true
+          example: "SLIM"
+        material:
+          type: string
+          nullable: true
+          example: "COTTON"
+        category:
+          type: string
+          nullable: true
+          example: "TOPS"
+        styleTags:
+          type: string
+          nullable: true
+          description: Comma-separated AI-assigned style tags
+          example: "casual,minimalist"
+
+    # ── Looks ─────────────────────────────────────────────────────────────
+    LookItem:
+      type: object
+      required: [clothe, size, x, y, z, rotation]
+      properties:
+        clothe:
+          $ref: "#/components/schemas/Clothe"
+        size:
+          type: integer
+          format: int32
+          description: Display size multiplier
+          example: 100
+        x:
+          type: number
+          format: float
+          description: Horizontal canvas position (0.0–1.0)
+          example: 0.25
+        y:
+          type: number
+          format: float
+          description: Vertical canvas position (0.0–1.0)
+          example: 0.40
+        z:
+          type: number
+          format: float
+          description: Z-layer order
+          example: 1.0
+        rotation:
+          type: number
+          format: float
+          description: Rotation in degrees
+          example: 0.0
+
+    Look:
+      type: object
+      required: [name, lookItems, url]
+      properties:
+        id:
+          type: integer
+          format: int32
+          nullable: true
+          example: 7
+        name:
+          type: string
+          example: "Sunday Casual"
+        lookItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/LookItem"
+        url:
+          type: string
+          description: URL to the rendered look preview image
+          example: "http://localhost:8080/looks/abc123.png"
+
+    LookPreview:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          example: 7
+        url:
+          type: string
+          example: "http://localhost:8080/looks/abc123.png"
+        name:
+          type: string
+          example: "Sunday Casual"
+        generatedByAi:
+          type: boolean
+          example: false
+
+    # ── Sharing ───────────────────────────────────────────────────────────
+    ShareLinkResponse:
+      type: object
+      properties:
+        shareToken:
+          type: string
+          example: "share_a1b2c3d4e5f6"
+        shareUrl:
+          type: string
+          example: "http://pocketwardrobe/share/share_a1b2c3d4e5f6"
+
+    SharedLookDetails:
+      type: object
+      properties:
+        look:
+          $ref: "#/components/schemas/Look"
+        shareToken:
+          type: string
+          example: "share_a1b2c3d4e5f6"
+
+    ImportRequest:
+      type: object
+      required: [importType]
+      properties:
+        importType:
+          type: string
+          enum: [FULL_LOOK, SELECTED_ITEMS]
+          example: "SELECTED_ITEMS"
+        clotheIds:
+          type: array
+          nullable: true
+          description: Required when importType is SELECTED_ITEMS
+          items:
+            type: integer
+            format: int32
+          example: [42, 43]
+
+    # ── Profile ───────────────────────────────────────────────────────────
+    UserProfileResponse:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "alice_w"
+        email:
+          type: string
+          format: email
+          example: "alice@example.com"
+        gender:
+          type: string
+          example: "FEMALE"
+
+    # ── Health ────────────────────────────────────────────────────────────
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          example: "healthy"
+        database:
+          type: string
+          enum: [connected, disconnected, error]
+          example: "connected"
+        timestamp:
+          type: integer
+          format: int64
+          example: 1711200000000
+
+    # ── Errors ────────────────────────────────────────────────────────────
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Unauthorized"
+        message:
+          type: string
+          example: "Authentication required"
+
+    # ── Inline response wrappers ──────────────────────────────────────────
+    LookIdResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          example: 7
+
+    LookIdsResponse:
+      type: object
+      properties:
+        lookIds:
+          type: array
+          items:
+            type: integer
+            format: int32
+          example: [7, 8, 9]
+
+    ImageUrlResponse:
+      type: object
+      properties:
+        imageUrl:
+          type: string
+          example: "http://localhost:8080/looks/3f2a1b4c.png"
+
+    ImportFullLookResponse:
+      type: object
+      properties:
+        lookId:
+          type: integer
+          format: int32
+          example: 7
+
+    ImportSelectedItemsResponse:
+      type: object
+      properties:
+        clotheIds:
+          type: array
+          items:
+            type: integer
+            format: int32
+          example: [42, 43]
+
+  # ─── Reusable responses ──────────────────────────────────────────────────
+  responses:
+    Unauthorized:
+      description: Missing or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "Unauthorized"
+            message: "Authentication required"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "Not found"
+            message: "The requested resource was not found"
+
+    BadRequest:
+      description: Validation error or missing parameter
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "Validation error"
+            message: "Invalid request parameters"
+
+    Conflict:
+      description: Resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "Conflict"
+            message: "User with this username or email already exists"
+
+    InternalServerError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "Internal server error"
+            message: "An unexpected error occurred. Please try again later."
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "Too many requests"
+            message: "Rate limit exceeded. Please try again later."
+
+# ─── Paths ────────────────────────────────────────────────────────────────────
+paths:
+
+  # ── Health ──────────────────────────────────────────────────────────────────
+  /health:
+    get:
+      tags: [Health]
+      summary: Service health check
+      description: Returns 200 when the server and database are operational, 503 otherwise.
+      operationId: getHealth
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: "healthy"
+                database: "connected"
+                timestamp: 1711200000000
+        "503":
+          description: Service or database is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: "unhealthy"
+                database: "disconnected"
+                timestamp: 1711200000000
+
+  # ── Auth ────────────────────────────────────────────────────────────────────
+  /api/v1/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      description: |
+        Creates a new account and immediately returns a token pair.
+        **Rate limited:** 10 requests per minute per IP.
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+              example:
+                accessToken: "eyJhbGciOiJIUzI1NiJ9.access.YYYY"
+                refreshToken: "eyJhbGciOiJIUzI1NiJ9.refresh.XXXX"
+                expiresAt: 1711200900000
+                userId: 1
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/v1/login:
+    post:
+      tags: [Auth]
+      summary: Authenticate and obtain tokens
+      description: |
+        Accepts email **or** username as the `login` field.
+        **Rate limited:** 10 requests per minute per IP.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+              example:
+                accessToken: "eyJhbGciOiJIUzI1NiJ9.access.YYYY"
+                refreshToken: "eyJhbGciOiJIUzI1NiJ9.refresh.XXXX"
+                expiresAt: 1711200900000
+                userId: 1
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/v1/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      description: |
+        Issues a new token pair using a valid refresh token.
+        The submitted refresh token remains valid until explicitly revoked via `/logout`.
+        **Rate limited:** 10 requests per minute per IP.
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/v1/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke refresh token
+      description: |
+        Adds the supplied refresh token to the revocation list.
+        Subsequent `/refresh` calls with this token will return 401.
+        **Rate limited:** 10 requests per minute per IP.
+      operationId: logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "204":
+          description: Token revoked — no content returned
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ── Clothes ─────────────────────────────────────────────────────────────────
+  /api/v1/clothes:
+    get:
+      tags: [Clothes]
+      summary: List all clothes for the authenticated user
+      operationId: getClothes
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of wardrobe items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Clothe"
+              example:
+                - id: 42
+                  imageUrl: "http://localhost:8080/images/3f2a1b4c.png"
+                  name: "White Oxford Shirt"
+                  storeUrl: "https://store.example.com/white-oxford"
+                  season: "SUMMER"
+                  fit: "SLIM"
+                  material: "COTTON"
+                  category: "TOPS"
+                  styleTags: "casual,minimalist"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Clothes]
+      summary: Upload a new clothing item with image
+      description: |
+        Accepts a multipart form with three parts:
+        - `name` — display name (text)
+        - `storeUrl` — product page URL (text)
+        - `image` — JPEG or PNG file
+
+        The image is processed through background removal and AI fashion analysis
+        before being saved. AI-detected attributes (`season`, `fit`, `material`,
+        `category`, `styleTags`) are filled in automatically.
+
+        **Rate limited:** 20 requests per minute per user.
+      operationId: uploadClothe
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [name, storeUrl, image]
+              properties:
+                name:
+                  type: string
+                  example: "White Oxford Shirt"
+                storeUrl:
+                  type: string
+                  example: "https://store.example.com/white-oxford"
+                image:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Clothing item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Clothe"
+              example:
+                id: 42
+                imageUrl: "http://localhost:8080/images/3f2a1b4c.png"
+                name: "White Oxford Shirt"
+                storeUrl: "https://store.example.com/white-oxford"
+                season: "SUMMER"
+                fit: "SLIM"
+                material: "COTTON"
+                category: "TOPS"
+                styleTags: "casual,minimalist"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/clothes/from_url:
+    get:
+      tags: [Clothes]
+      summary: Import a clothing item from an image URL
+      description: |
+        Downloads the image at the provided URL, removes its background,
+        and saves it as a new clothing item.
+        AI attribute analysis is NOT run for URL imports.
+        **Rate limited:** 20 requests per minute per user.
+      operationId: addClotheFromUrl
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: url
+          in: query
+          required: true
+          schema:
+            type: string
+          example: "https://cdn.example.com/shirt.jpg"
+      responses:
+        "201":
+          description: Clothing item created from URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Clothe"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/clothes/byName/{clotheName}:
+    get:
+      tags: [Clothes]
+      summary: Look up a clothing item by name
+      operationId: getClotheByName
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clotheName
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "White Oxford Shirt"
+      responses:
+        "200":
+          description: Clothing item found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Clothe"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/clothes/byLookId:
+    get:
+      tags: [Clothes]
+      summary: Get all clothes belonging to a specific look
+      operationId: getClothesByLookId
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: lookId
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int32
+          example: 7
+      responses:
+        "200":
+          description: Clothes in the look
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Clothe"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/clothes/{id}:
+    get:
+      tags: [Clothes]
+      summary: Get a clothing item by ID
+      operationId: getClotheById
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+          example: 42
+      responses:
+        "200":
+          description: Clothing item found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Clothe"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [Clothes]
+      summary: Remove a clothing item from the user's wardrobe
+      description: Removes the user–item association. The shared clothing record is not deleted.
+      operationId: deleteClothe
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+          example: 42
+      responses:
+        "204":
+          description: Item removed from wardrobe
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Looks ────────────────────────────────────────────────────────────────────
+  /api/v1/looks:
+    get:
+      tags: [Looks]
+      summary: List all looks for the authenticated user
+      operationId: getLooks
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of look previews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LookPreview"
+              example:
+                - id: 7
+                  url: "http://localhost:8080/looks/abc123.png"
+                  name: "Sunday Casual"
+                  generatedByAi: false
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Looks]
+      summary: Save a new look
+      description: |
+        Persists a look composition. All `clothe.id` values inside `lookItems`
+        must reference clothing items already in the user's wardrobe.
+        **Rate limited:** 20 requests per minute per user.
+      operationId: createLook
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Look"
+            example:
+              name: "Sunday Casual"
+              url: "http://localhost:8080/looks/abc123.png"
+              lookItems:
+                - clothe:
+                    id: 42
+                    name: "White Oxford Shirt"
+                  size: 100
+                  x: 0.25
+                  y: 0.40
+                  z: 1.0
+                  rotation: 0.0
+      responses:
+        "201":
+          description: Look saved — returns the new look ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LookIdResponse"
+              example:
+                id: 7
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/v1/looks/uploadImage:
+    post:
+      tags: [Looks]
+      summary: Upload a look preview image
+      description: |
+        Accepts a multipart form with a single `image` part (JPEG or PNG).
+        Returns the server URL where the image can be accessed.
+        **Rate limited:** 20 requests per minute per user.
+      operationId: uploadLookImage
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Image uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageUrlResponse"
+              example:
+                imageUrl: "http://localhost:8080/looks/3f2a1b4c.png"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/v1/looks/generate:
+    get:
+      tags: [Looks]
+      summary: AI-generate outfit looks from the user's wardrobe
+      description: |
+        Calls the AI look-generation service, saves the resulting looks,
+        and returns their IDs. Generation may take a few seconds.
+      operationId: generateLooks
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: IDs of newly generated looks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LookIdsResponse"
+              example:
+                lookIds: [7, 8, 9]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/looks/byId/{lookId}:
+    get:
+      tags: [Looks]
+      summary: Get a full look by ID
+      operationId: getLookById
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: lookId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+          example: 7
+      responses:
+        "200":
+          description: Full look with all items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Look"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/looks/{lookId}/share:
+    post:
+      tags: [Looks]
+      summary: Create a shareable link for a look
+      description: |
+        Generates a unique token and URL that allows anyone to view the look
+        without authentication.
+        **Rate limited:** 20 requests per minute per user.
+      operationId: shareLook
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: lookId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+          example: 7
+      responses:
+        "201":
+          description: Share link created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShareLinkResponse"
+              example:
+                shareToken: "share_a1b2c3d4e5f6"
+                shareUrl: "http://pocketwardrobe/share/share_a1b2c3d4e5f6"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/v1/looks/{lookId}/shares:
+    get:
+      tags: [Looks]
+      summary: List all active share tokens for a look
+      operationId: getLookShares
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: lookId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+          example: 7
+      responses:
+        "200":
+          description: Active share links
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ShareLinkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/looks/{id}:
+    delete:
+      tags: [Looks]
+      summary: Delete a look from the user's collection
+      operationId: deleteLook
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+          example: 7
+      responses:
+        "204":
+          description: Look removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Shared Looks ─────────────────────────────────────────────────────────────
+  /api/v1/share/{shareToken}:
+    get:
+      tags: [Shared Looks]
+      summary: View a shared look (public)
+      description: |
+        No authentication required.
+        Used by mobile deep-link handlers and web preview pages.
+      operationId: getSharedLook
+      parameters:
+        - name: shareToken
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "share_a1b2c3d4e5f6"
+      responses:
+        "200":
+          description: Shared look details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedLookDetails"
+              example:
+                shareToken: "share_a1b2c3d4e5f6"
+                look:
+                  id: 7
+                  name: "Sunday Casual"
+                  url: "http://localhost:8080/looks/abc123.png"
+                  lookItems:
+                    - clothe:
+                        id: 42
+                        name: "White Oxford Shirt"
+                        imageUrl: "http://localhost:8080/images/3f2a1b4c.png"
+                        category: "TOPS"
+                      size: 100
+                      x: 0.25
+                      y: 0.40
+                      z: 1.0
+                      rotation: 0.0
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [Shared Looks]
+      summary: Revoke a share token (look owner only)
+      operationId: revokeShareToken
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: shareToken
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "share_a1b2c3d4e5f6"
+      responses:
+        "204":
+          description: Share token revoked
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/share/{shareToken}/import:
+    post:
+      tags: [Shared Looks]
+      summary: Import a shared look or selected items into the user's wardrobe
+      description: |
+        Two import modes controlled by `importType`:
+
+        - **`FULL_LOOK`** — Clones the entire look and all its clothing items
+          into the authenticated user's wardrobe. Returns `{ "lookId": <Int> }`.
+        - **`SELECTED_ITEMS`** — Copies only the items listed in `clotheIds`.
+          Returns `{ "clotheIds": [<Int>] }`.
+
+        **Rate limited:** 20 requests per minute per user.
+      operationId: importSharedLook
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: shareToken
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "share_a1b2c3d4e5f6"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportRequest"
+            examples:
+              fullLook:
+                summary: Import entire look
+                value:
+                  importType: "FULL_LOOK"
+              selectedItems:
+                summary: Import selected clothes only
+                value:
+                  importType: "SELECTED_ITEMS"
+                  clotheIds: [42, 43]
+      responses:
+        "201":
+          description: Import successful
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ImportFullLookResponse"
+                  - $ref: "#/components/schemas/ImportSelectedItemsResponse"
+              examples:
+                fullLook:
+                  summary: Full look imported
+                  value:
+                    lookId: 7
+                selectedItems:
+                  summary: Selected items imported
+                  value:
+                    clotheIds: [42, 43]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ── Profile ──────────────────────────────────────────────────────────────────
+  /api/v1/profile:
+    get:
+      tags: [Profile]
+      summary: Get the authenticated user's profile
+      operationId: getProfile
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfileResponse"
+              example:
+                name: "alice_w"
+                email: "alice@example.com"
+                gender: "FEMALE"
+        "401":
+          $ref: "#/components/responses/Unauthorized"

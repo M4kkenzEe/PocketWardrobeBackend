@@ -47,6 +47,7 @@ fun Application.module() {
     looks()
     sharedLooks()
     profile()
+    configureSwagger()
 
     log.info("=" + "=".repeat(69))
     log.info("✓ PocketWardrobe Backend started successfully!")
