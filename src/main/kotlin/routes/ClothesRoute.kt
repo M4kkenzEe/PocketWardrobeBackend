@@ -4,6 +4,7 @@ import com.example.auth.model.UserPrincipal
 import com.example.auth.EnvironmentConfig
 import com.example.usecases.ClotheUseCase
 import com.example.database.data.model.Clothe
+import com.example.database.data.model.PaginatedClothesResponse
 import com.example.database.domain.repository.ClotheRepository
 import com.example.database.domain.repository.UserClotheRepository
 import com.example.services.RemoveBgService
@@ -43,10 +44,25 @@ fun Application.clothes() {
                 authenticate {
                     route("/clothes") {
                         // Get all clothes for user
+                        // Without ?limit → returns full list (backward compat)
+                        // With ?limit   → returns paginated PaginatedClothesResponse
                         get {
                             val userId = getUserIdOrThrow(call)
-                            val clothes = clotheRepository.getAllClothes(userId)
-                            call.respond(clothes)
+                            val limitParam = call.request.queryParameters["limit"]
+
+                            if (limitParam == null) {
+                                call.respond(clotheRepository.getAllClothes(userId))
+                            } else {
+                                val limit = limitParam.toIntOrNull()?.coerceIn(1, 50) ?: 20
+                                val cursor = call.request.queryParameters["cursor"]?.toIntOrNull()
+
+                                val items = clotheRepository.getClothesPaginated(userId, limit + 1, cursor)
+                                val hasMore = items.size > limit
+                                val page = if (hasMore) items.dropLast(1) else items
+                                val nextCursor = if (hasMore) page.lastOrNull()?.id else null
+
+                                call.respond(PaginatedClothesResponse(data = page, nextCursor = nextCursor, hasMore = hasMore))
+                            }
                         }
 
                         // Get clothe by name

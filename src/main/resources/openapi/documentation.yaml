@@ -300,6 +300,28 @@ components:
           type: string
           example: "Authentication required"
 
+    # ── Pagination ────────────────────────────────────────────────────────
+    PaginatedClothesResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Clothe"
+        nextCursor:
+          type: integer
+          format: int32
+          nullable: true
+          description: |
+            The `id` of the last item in the current page.
+            Pass this as `?cursor=<value>` in the next request to fetch the next page.
+            `null` when this is the last page.
+          example: 34
+        hasMore:
+          type: boolean
+          description: "`true` when there are more items beyond this page."
+          example: true
+
     # ── Inline response wrappers ──────────────────────────────────────────
     LookIdResponse:
       type: object
@@ -559,29 +581,112 @@ paths:
   /api/v1/clothes:
     get:
       tags: [Clothes]
-      summary: List all clothes for the authenticated user
+      summary: List clothes for the authenticated user
+      description: |
+        Returns the user's wardrobe items.
+
+        **Pagination is opt-in via the `limit` query parameter:**
+
+        | Parameters         | Response shape              | Use case                  |
+        |--------------------|-----------------------------|---------------------------|
+        | _(none)_           | `Clothe[]` (plain array)    | Backward-compatible full list |
+        | `?limit=N`         | `PaginatedClothesResponse`  | First page                |
+        | `?limit=N&cursor=X`| `PaginatedClothesResponse`  | Subsequent pages          |
+
+        **How cursor pagination works:**
+        1. Call `GET /clothes?limit=20` — save `nextCursor` from the response.
+        2. Call `GET /clothes?limit=20&cursor=<nextCursor>` for the next page.
+        3. Repeat until `hasMore` is `false`.
+
+        `cursor` is the `id` of the last received item. The server returns items
+        where `id > cursor`, ordered by `id ASC`.
+
+        `limit` is clamped to `[1, 50]`. Invalid values fall back to `20`.
       operationId: getClothes
       security:
         - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 50
+            default: 20
+          description: |
+            Number of items per page. When **omitted**, the full list is returned
+            as a plain array (backward-compatible mode).
+          example: 20
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+          description: |
+            The `nextCursor` value from the previous paginated response.
+            Omit on the first request.
+          example: 34
       responses:
         "200":
-          description: List of wardrobe items
+          description: |
+            Wardrobe items.
+            - **Without `limit`** → plain `Clothe[]`
+            - **With `limit`** → `PaginatedClothesResponse`
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Clothe"
-              example:
-                - id: 42
-                  imageUrl: "http://localhost:8080/images/3f2a1b4c.png"
-                  name: "White Oxford Shirt"
-                  storeUrl: "https://store.example.com/white-oxford"
-                  season: "SUMMER"
-                  fit: "SLIM"
-                  material: "COTTON"
-                  category: "TOPS"
-                  styleTags: "casual,minimalist"
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/Clothe"
+                    description: "Returned when `limit` is not provided (full list)"
+                  - $ref: "#/components/schemas/PaginatedClothesResponse"
+              examples:
+                fullList:
+                  summary: "No pagination params → full list"
+                  value:
+                    - id: 42
+                      imageUrl: "http://localhost:8080/images/3f2a1b4c.png"
+                      name: "White Oxford Shirt"
+                      storeUrl: "https://store.example.com/white-oxford"
+                      season: "SUMMER"
+                      fit: "SLIM"
+                      material: "COTTON"
+                      category: "TOPS"
+                      styleTags: "casual,minimalist"
+                paginated:
+                  summary: "With ?limit=20 → paginated response"
+                  value:
+                    data:
+                      - id: 25
+                        imageUrl: "http://localhost:8080/images/3f2a1b4c.png"
+                        name: "White Oxford Shirt"
+                        storeUrl: "https://store.example.com/white-oxford"
+                        season: "SUMMER"
+                        fit: "SLIM"
+                        material: "COTTON"
+                        category: "TOPS"
+                        styleTags: "casual,minimalist"
+                    nextCursor: 34
+                    hasMore: true
+                lastPage:
+                  summary: "Last page → hasMore false"
+                  value:
+                    data:
+                      - id: 120
+                        imageUrl: "http://localhost:8080/images/abc.png"
+                        name: "Black Jeans"
+                        storeUrl: "https://store.example.com/black-jeans"
+                        season: "WINTER"
+                        fit: "SLIM"
+                        material: "DENIM"
+                        category: "PANTS"
+                        styleTags: "casual"
+                    nextCursor: null
+                    hasMore: false
         "401":
           $ref: "#/components/responses/Unauthorized"
 

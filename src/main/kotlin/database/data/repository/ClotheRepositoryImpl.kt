@@ -3,6 +3,7 @@ package com.example.database.data.repository
 import com.example.database.data.model.*
 import com.example.database.domain.repository.ClotheRepository
 import com.example.database.suspendTransaction
+import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 
 class ClotheRepositoryImpl : ClotheRepository {
@@ -17,6 +18,20 @@ class ClotheRepositoryImpl : ClotheRepository {
             val clotheDao = ClotheDao.findById(userClothe.clotheId)
             clotheDao?.let { daoToModel(it) }
         }
+    }
+
+    override suspend fun getClothesPaginated(userId: Int, limit: Int, afterId: Int?): List<Clothe> = suspendTransaction {
+        val allClotheIds = UserClotheDao.find {
+            (UserClotheTable.userId eq userId) and (UserClotheTable.isDeleted eq false)
+        }.map { it.clotheId.value }.sorted()
+
+        val filteredIds = if (afterId != null) allClotheIds.filter { it > afterId } else allClotheIds
+        val pageIds = filteredIds.take(limit)
+
+        if (pageIds.isEmpty()) return@suspendTransaction emptyList()
+        ClotheDao.find { ClotheTable.id inList pageIds }
+            .orderBy(ClotheTable.id to SortOrder.ASC)
+            .map { daoToModel(it) }
     }
 
     override suspend fun getClotheByName(name: String, userId: Int): Clothe? = suspendTransaction {
