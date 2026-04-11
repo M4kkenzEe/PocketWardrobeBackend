@@ -54,3 +54,10 @@ fun daoToModel(dao: ClotheDao) = Clothe(
     category = dao.category,
     styleTags = dao.styleTags
 )
+
+@Serializable
+data class PaginatedClothesResponse(
+    val data: List<Clothe>,
+    val nextCursor: Int?,
+    val hasMore: Boolean
+)
