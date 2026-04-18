@@ -1,10 +1,15 @@
 package com.example.database.data.model
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.dao.id.EntityID
 import org.jetbrains.exposed.v1.core.dao.id.IntIdTable
 import org.jetbrains.exposed.v1.dao.IntEntity
 import org.jetbrains.exposed.v1.dao.IntEntityClass
+
+@Serializable
+data class RgbColor(val r: Int, val g: Int, val b: Int)
 
 @Serializable
 data class Clothe(
@@ -16,7 +21,9 @@ data class Clothe(
     val fit: String? = null,
     val material: String? = null,
     val category: String? = null,
-    val styleTags: String? = null
+    val styleTags: String? = null,
+    val brand: String? = null,
+    val colors: List<RgbColor>? = null
 )
 
 object ClotheTable : IntIdTable("clothes") {
@@ -28,6 +35,8 @@ object ClotheTable : IntIdTable("clothes") {
     val material = varchar("material", 100).nullable()
     val category = varchar("category", 100).nullable()
     val styleTags = varchar("style_tags", 500).nullable()
+    val brand = varchar("brand", 100).nullable()
+    val colors = text("colors").nullable()
 }
 
 class ClotheDao(id: EntityID<Int>) : IntEntity(id) {
@@ -41,7 +50,11 @@ class ClotheDao(id: EntityID<Int>) : IntEntity(id) {
     var material by ClotheTable.material
     var category by ClotheTable.category
     var styleTags by ClotheTable.styleTags
+    var brand by ClotheTable.brand
+    var colors by ClotheTable.colors
 }
+
+private val json = Json { ignoreUnknownKeys = true }
 
 fun daoToModel(dao: ClotheDao) = Clothe(
     id = dao.id.value,
@@ -52,7 +65,23 @@ fun daoToModel(dao: ClotheDao) = Clothe(
     fit = dao.fit,
     material = dao.material,
     category = dao.category,
-    styleTags = dao.styleTags
+    styleTags = dao.styleTags,
+    brand = dao.brand,
+    colors = dao.colors?.let { runCatching { json.decodeFromString<List<RgbColor>>(it) }.getOrNull() }
+)
+
+fun rowToClothe(row: ResultRow) = Clothe(
+    id = row[ClotheTable.id].value,
+    name = row[ClotheTable.name],
+    imageUrl = row[ClotheTable.imageUrl],
+    storeUrl = row[ClotheTable.storeUrl],
+    season = row[ClotheTable.season],
+    fit = row[ClotheTable.fit],
+    material = row[ClotheTable.material],
+    category = row[ClotheTable.category],
+    styleTags = row[ClotheTable.styleTags],
+    brand = row[ClotheTable.brand],
+    colors = row[ClotheTable.colors]?.let { runCatching { json.decodeFromString<List<RgbColor>>(it) }.getOrNull() }
 )
 
 @Serializable
@@ -60,4 +89,31 @@ data class PaginatedClothesResponse(
     val data: List<Clothe>,
     val nextCursor: Int?,
     val hasMore: Boolean
+)
+
+data class ClotheFilter(
+    val categories: List<String>? = null,
+    val materials: List<String>? = null,
+    val fits: List<String>? = null,
+    val seasons: List<String>? = null,
+    val styles: List<String>? = null,
+    val brands: List<String>? = null,
+    val color: RgbColor? = null,
+    val colorTolerance: Double = 50.0,
+    val searchQuery: String? = null
+) {
+    val isEmpty: Boolean get() = categories == null && materials == null &&
+        fits == null && seasons == null && styles == null &&
+        brands == null && color == null && searchQuery == null
+}
+
+@Serializable
+data class AvailableFiltersResponse(
+    val categories: List<String>,
+    val materials: List<String>,
+    val fits: List<String>,
+    val seasons: List<String>,
+    val styles: List<String>,
+    val brands: List<String>,
+    val colors: List<RgbColor>
 )

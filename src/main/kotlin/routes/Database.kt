@@ -69,6 +69,8 @@ fun Application.configureDatabase() {
         )
         // Add new columns to existing tables (safe, idempotent)
         exec("ALTER TABLE looks ADD COLUMN IF NOT EXISTS generated_by_ai BOOLEAN DEFAULT FALSE NOT NULL")
+        exec("ALTER TABLE clothes ADD COLUMN IF NOT EXISTS brand VARCHAR(100)")
+        exec("ALTER TABLE clothes ADD COLUMN IF NOT EXISTS colors TEXT")
     }
 
     log.info("✓ Database configured successfully")
