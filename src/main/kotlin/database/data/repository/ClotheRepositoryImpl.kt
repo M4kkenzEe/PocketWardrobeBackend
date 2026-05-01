@@ -125,7 +125,7 @@ class ClotheRepositoryImpl : ClotheRepository {
             .distinct().sorted()
         val brands = rows.mapNotNull { it[ClotheTable.brand] }.distinct().sorted()
         val colors = rows.mapNotNull { it[ClotheTable.colors] }
-            .flatMap { c -> runCatching { json.decodeFromString<List<RgbColor>>(c) }.getOrDefault(emptyList()) }
+            .flatMap { c -> runCatching { json.decodeFromString<List<String>>(c) }.getOrDefault(emptyList()) }
             .distinct()
 
         AvailableFiltersResponse(categories, materials, fits, seasons, styles, brands, colors)

@@ -9,9 +9,6 @@ import org.jetbrains.exposed.v1.dao.IntEntity
 import org.jetbrains.exposed.v1.dao.IntEntityClass
 
 @Serializable
-data class RgbColor(val r: Int, val g: Int, val b: Int)
-
-@Serializable
 data class Clothe(
     val id: Int? = null,
     val imageUrl: String? = null,
@@ -23,7 +20,7 @@ data class Clothe(
     val category: String? = null,
     val styleTags: String? = null,
     val brand: String? = null,
-    val colors: List<RgbColor>? = null
+    val colors: List<String>? = null
 )
 
 object ClotheTable : IntIdTable("clothes") {
@@ -67,7 +64,7 @@ fun daoToModel(dao: ClotheDao) = Clothe(
     category = dao.category,
     styleTags = dao.styleTags,
     brand = dao.brand,
-    colors = dao.colors?.let { runCatching { json.decodeFromString<List<RgbColor>>(it) }.getOrNull() }
+    colors = dao.colors?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }
 )
 
 fun rowToClothe(row: ResultRow) = Clothe(
@@ -81,7 +78,7 @@ fun rowToClothe(row: ResultRow) = Clothe(
     category = row[ClotheTable.category],
     styleTags = row[ClotheTable.styleTags],
     brand = row[ClotheTable.brand],
-    colors = row[ClotheTable.colors]?.let { runCatching { json.decodeFromString<List<RgbColor>>(it) }.getOrNull() }
+    colors = row[ClotheTable.colors]?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }
 )
 
 @Serializable
@@ -98,7 +95,7 @@ data class ClotheFilter(
     val seasons: List<String>? = null,
     val styles: List<String>? = null,
     val brands: List<String>? = null,
-    val color: RgbColor? = null,
+    val color: String? = null,
     val colorTolerance: Double = 50.0,
     val searchQuery: String? = null
 ) {
@@ -115,5 +112,5 @@ data class AvailableFiltersResponse(
     val seasons: List<String>,
     val styles: List<String>,
     val brands: List<String>,
-    val colors: List<RgbColor>
+    val colors: List<String>
 )

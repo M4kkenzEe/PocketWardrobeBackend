@@ -1,7 +1,6 @@
 package com.example.clothes
 
 import com.example.database.data.model.ClotheFilter
-import com.example.database.data.model.RgbColor
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -50,7 +49,7 @@ class ClotheFilterUnitTest {
 
     @Test
     fun `isEmpty is false when color is set`() {
-        assertFalse(ClotheFilter(color = RgbColor(255, 0, 0)).isEmpty)
+        assertFalse(ClotheFilter(color = "#FF0000").isEmpty)
     }
 
     @Test

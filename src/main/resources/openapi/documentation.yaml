@@ -148,6 +148,59 @@ components:
           nullable: true
           description: Comma-separated AI-assigned style tags
           example: "casual,minimalist"
+        brand:
+          type: string
+          nullable: true
+          example: "Nike"
+        colors:
+          type: array
+          nullable: true
+          description: Dominant colors detected by AI, in HEX format (#RRGGBB)
+          items:
+            type: string
+            pattern: "^#[0-9A-Fa-f]{6}$"
+          example: ["#FFFFFF", "#C8B4A0"]
+
+    AvailableFiltersResponse:
+      type: object
+      properties:
+        categories:
+          type: array
+          items:
+            type: string
+          example: ["outerwear", "pants", "tops"]
+        materials:
+          type: array
+          items:
+            type: string
+          example: ["cotton", "denim", "linen", "polyester"]
+        fits:
+          type: array
+          items:
+            type: string
+          example: ["loose", "regular", "slim"]
+        seasons:
+          type: array
+          items:
+            type: string
+          example: ["all-season", "summer", "winter"]
+        styles:
+          type: array
+          items:
+            type: string
+          example: ["casual", "formal", "streetwear"]
+        brands:
+          type: array
+          items:
+            type: string
+          example: ["Adidas", "Nike", "Zara"]
+        colors:
+          type: array
+          description: Unique dominant colors from the user's wardrobe, in HEX format (#RRGGBB)
+          items:
+            type: string
+            pattern: "^#[0-9A-Fa-f]{6}$"
+          example: ["#000000", "#0000C8", "#FFFFFF"]
 
     # ── Looks ─────────────────────────────────────────────────────────────
     LookItem:
@@ -629,6 +682,79 @@ paths:
             The `nextCursor` value from the previous paginated response.
             Omit on the first request.
           example: 34
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by category (OR, exact match). Can be repeated.
+          example: "tops"
+        - name: season
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by season (OR, exact match). Can be repeated.
+          example: "summer"
+        - name: material
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by material (OR, substring match). Can be repeated.
+          example: "cotton"
+        - name: fit
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by fit (OR, substring match). Can be repeated.
+          example: "slim"
+        - name: style
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by style tag (OR, substring match in styleTags). Can be repeated.
+          example: "casual"
+        - name: brand
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by brand (OR, exact match). Can be repeated.
+          example: "Nike"
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Full-text search by item name (case-insensitive substring).
+          example: "shirt"
+        - name: color
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: "^#[0-9A-Fa-f]{6}$"
+          description: |
+            Filter by dominant color. Pass a HEX color (`#RRGGBB`, URL-encoded as `%23RRGGBB`).
+            Items are matched by Euclidean distance in RGB space against `color_tolerance`.
+            Invalid values are silently ignored.
+          example: "#FF0000"
+        - name: color_tolerance
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+            default: 50.0
+            minimum: 0
+            maximum: 441
+          description: |
+            Maximum Euclidean distance in RGB space to consider a color match.
+            `0` = exact match, `441` = any color. Default `50.0`.
+          example: 30
       responses:
         "200":
           description: |
@@ -657,6 +783,8 @@ paths:
                       material: "COTTON"
                       category: "TOPS"
                       styleTags: "casual,minimalist"
+                      brand: "Nike"
+                      colors: ["#FFFFFF", "#C8B4A0"]
                 paginated:
                   summary: "With ?limit=20 → paginated response"
                   value:
@@ -670,6 +798,8 @@ paths:
                         material: "COTTON"
                         category: "TOPS"
                         styleTags: "casual,minimalist"
+                        brand: "Nike"
+                        colors: ["#FFFFFF", "#C8B4A0"]
                     nextCursor: 34
                     hasMore: true
                 lastPage:
@@ -685,6 +815,8 @@ paths:
                         material: "DENIM"
                         category: "PANTS"
                         styleTags: "casual"
+                        brand: null
+                        colors: ["#1A1A1A"]
                     nextCursor: null
                     hasMore: false
         "401":
@@ -741,6 +873,8 @@ paths:
                 material: "COTTON"
                 category: "TOPS"
                 styleTags: "casual,minimalist"
+                brand: "Nike"
+                colors: ["#FFFFFF", "#C8B4A0"]
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -749,6 +883,42 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/clothes/filters:
+    get:
+      tags: [Clothes]
+      summary: Get available filter values for the user's wardrobe
+      description: |
+        Returns all distinct filter values derived from the authenticated user's
+        clothing items. Use this to populate filter UI (chips, dropdowns, color pickers).
+
+        Note on splitting:
+        - `materials` — split on ` + ` (e.g. `"cotton + polyester"` → `["cotton", "polyester"]`)
+        - `fits` — split on `-` (e.g. `"slim-regular"` → `["slim", "regular"]`)
+        - `styles` — split on `,`
+
+        All lists are deduplicated and sorted alphabetically.
+        Items with `null` brand are excluded from `brands`.
+      operationId: getAvailableFilters
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Available filter values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailableFiltersResponse"
+              example:
+                categories: ["outerwear", "pants", "tops"]
+                materials: ["cotton", "denim", "linen", "polyester"]
+                fits: ["loose", "regular", "slim"]
+                seasons: ["all-season", "summer", "winter"]
+                styles: ["casual", "formal", "streetwear"]
+                brands: ["Adidas", "Nike", "Zara"]
+                colors: ["#000000", "#0000C8", "#FFFFFF"]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/v1/clothes/from_url:
     get:

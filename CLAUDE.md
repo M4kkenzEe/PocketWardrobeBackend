@@ -76,3 +76,27 @@ Key required variables: `JWT_SECRET` (min 32 chars), `DB_URL`, `DB_USER`, `DB_PA
 ## API Structure
 
 All authenticated endpoints are under `/api/v1`. The `/health` endpoint is public. Auth endpoints (`/register`, `/login`, `/refresh`, `/logout`) are defined in `routes/Routing.kt`.
+
+## Production Deploy
+
+**Production server:** `root@194.87.190.248`
+**DockerHub user:** `yura91191`
+**Build platforms:** `linux/amd64,linux/arm64`
+
+Services and their DockerHub images:
+
+| Service | Image | Source directory |
+|---|---|---|
+| Backend (Ktor) | `yura91191/pocketwardrobe-backend` | `PocketWardrobeBackend/` |
+| Recommendation service | `yura91191/recommendation-service` | `RecommendationService/` |
+| Remove BG service | `yura91191/removebg-service` | `RemoveBgServiceAi/` |
+| Fashion analyzer | `yura91191/fashion-analyzer` | `ai_analyzer/` |
+
+Use `/deploy` slash command or run the script directly:
+```bash
+.claude/scripts/deploy.sh              # full deploy
+.claude/scripts/deploy.sh --skip-push  # build only, no push to DockerHub
+.claude/scripts/deploy.sh --server-only # update server without rebuilding
+```
+
+**Security:** Never commit `.env` files. Never log SSH private keys. Use `docker secret` or `.env` (in `.gitignore`) for secrets.
