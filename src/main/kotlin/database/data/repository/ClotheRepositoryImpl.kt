@@ -3,17 +3,19 @@ package com.example.database.data.repository
 import com.example.database.data.model.*
 import com.example.database.domain.repository.ClotheRepository
 import com.example.database.suspendTransaction
-import org.jetbrains.exposed.v1.core.SortOrder
-import org.jetbrains.exposed.v1.core.and
+import kotlinx.serialization.json.Json
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.jdbc.selectAll
 
 class ClotheRepositoryImpl : ClotheRepository {
+
+    private val json = Json { ignoreUnknownKeys = true }
+
     override suspend fun getAllClothes(userId: Int): List<Clothe> = suspendTransaction {
-        // Find all UserClothe relations for this user where isDeleted = false
         val userClothes = UserClotheDao.find {
             (UserClotheTable.userId eq userId) and (UserClotheTable.isDeleted eq false)
         }
 
-        // Get the Clothe for each relation
         userClothes.mapNotNull { userClothe ->
             val clotheDao = ClotheDao.findById(userClothe.clotheId)
             clotheDao?.let { daoToModel(it) }
@@ -34,13 +36,106 @@ class ClotheRepositoryImpl : ClotheRepository {
             .map { daoToModel(it) }
     }
 
+    override suspend fun getClothesPaginatedFiltered(
+        userId: Int, limit: Int, afterId: Int?, filter: ClotheFilter
+    ): List<Clothe> = suspendTransaction {
+        (UserClotheTable innerJoin ClotheTable)
+            .selectAll()
+            .where {
+                var cond: Op<Boolean> =
+                    (UserClotheTable.userId eq userId) and (UserClotheTable.isDeleted eq false)
+
+                if (afterId != null) {
+                    cond = cond and (ClotheTable.id greater afterId)
+                }
+
+                // Category filter (OR within group)
+                filter.categories?.takeIf { it.isNotEmpty() }?.let { cats ->
+                    cond = cond and (ClotheTable.category inList cats)
+                }
+
+                // Material filter — LIKE for combined values (e.g. "cotton + polyester")
+                filter.materials?.takeIf { it.isNotEmpty() }?.let { mats ->
+                    val matCond = mats
+                        .map<String, Op<Boolean>> { m -> ClotheTable.material like "%$m%" }
+                        .reduce { acc, op -> acc or op }
+                    cond = cond and matCond
+                }
+
+                // Fit filter — LIKE for hybrid values (e.g. "slim-regular")
+                filter.fits?.takeIf { it.isNotEmpty() }?.let { fits ->
+                    val fitCond = fits
+                        .map<String, Op<Boolean>> { f -> ClotheTable.fit like "%$f%" }
+                        .reduce { acc, op -> acc or op }
+                    cond = cond and fitCond
+                }
+
+                // Season filter (exact match, OR)
+                filter.seasons?.takeIf { it.isNotEmpty() }?.let { seasons ->
+                    cond = cond and (ClotheTable.season inList seasons)
+                }
+
+                // Style filter — searches within comma-separated style_tags
+                filter.styles?.takeIf { it.isNotEmpty() }?.let { styles ->
+                    val styleCond = styles
+                        .map<String, Op<Boolean>> { s -> ClotheTable.styleTags like "%$s%" }
+                        .reduce { acc, op -> acc or op }
+                    cond = cond and styleCond
+                }
+
+                // Brand filter (exact match, OR)
+                filter.brands?.takeIf { it.isNotEmpty() }?.let { brands ->
+                    cond = cond and (ClotheTable.brand inList brands)
+                }
+
+                // Text search by name (case-insensitive via lowerCase)
+                filter.searchQuery?.takeIf { it.isNotBlank() }?.let { q ->
+                    val pattern = "%${q.trim().lowercase()}%"
+                    cond = cond and (ClotheTable.name.lowerCase() like pattern)
+                }
+
+                cond
+            }
+            .orderBy(ClotheTable.id to SortOrder.ASC)
+            .limit(limit)
+            .map { row -> rowToClothe(row) }
+    }
+
+    override suspend fun getAvailableFilters(userId: Int): AvailableFiltersResponse = suspendTransaction {
+        val rows = (UserClotheTable innerJoin ClotheTable)
+            .selectAll()
+            .where {
+                (UserClotheTable.userId eq userId) and (UserClotheTable.isDeleted eq false)
+            }
+            .toList()
+
+        val categories = rows.mapNotNull { it[ClotheTable.category] }.distinct().sorted()
+        val materials = rows.mapNotNull { it[ClotheTable.material] }
+            .flatMap { mat -> mat.split("+").map { it.trim() } }
+            .filter { it.isNotBlank() }
+            .distinct().sorted()
+        val fits = rows.mapNotNull { it[ClotheTable.fit] }
+            .flatMap { fit -> fit.split("-").map { it.trim() } }
+            .filter { it.isNotBlank() }
+            .distinct().sorted()
+        val seasons = rows.mapNotNull { it[ClotheTable.season] }.distinct().sorted()
+        val styles = rows.mapNotNull { it[ClotheTable.styleTags] }
+            .flatMap { tags -> tags.split(",").map { it.trim() } }
+            .filter { it.isNotBlank() }
+            .distinct().sorted()
+        val brands = rows.mapNotNull { it[ClotheTable.brand] }.distinct().sorted()
+        val colors = rows.mapNotNull { it[ClotheTable.colors] }
+            .flatMap { c -> runCatching { json.decodeFromString<List<RgbColor>>(c) }.getOrDefault(emptyList()) }
+            .distinct()
+
+        AvailableFiltersResponse(categories, materials, fits, seasons, styles, brands, colors)
+    }
+
     override suspend fun getClotheByName(name: String, userId: Int): Clothe? = suspendTransaction {
-        // Find all UserClothe relations for this user where isDeleted = false
         val userClothes = UserClotheDao.find {
             (UserClotheTable.userId eq userId) and (UserClotheTable.isDeleted eq false)
         }
 
-        // Find the clothe with matching name
         userClothes.firstNotNullOfOrNull { userClothe ->
             val clotheDao = ClotheDao.findById(userClothe.clotheId)
             clotheDao?.takeIf { it.name == name }?.let { daoToModel(it) }
@@ -52,7 +147,6 @@ class ClotheRepositoryImpl : ClotheRepository {
     }
 
     override suspend fun getClotheByIdForUser(clotheId: Int, userId: Int): Clothe? = suspendTransaction {
-        // Check if user has this clothe and it's not deleted
         val userClothe = UserClotheDao.find {
             (UserClotheTable.userId eq userId) and
             (UserClotheTable.clotheId eq clotheId) and
@@ -70,7 +164,8 @@ class ClotheRepositoryImpl : ClotheRepository {
         fit: String?,
         material: String?,
         category: String?,
-        styleTags: String?
+        styleTags: String?,
+        colors: String?
     ): Clothe = suspendTransaction {
         ClotheDao.new {
             name = clothe.name
@@ -81,6 +176,8 @@ class ClotheRepositoryImpl : ClotheRepository {
             this.material = material
             this.category = category
             this.styleTags = styleTags
+            this.brand = clothe.brand
+            this.colors = colors
         }.let { dao ->
             daoToModel(dao)
         }

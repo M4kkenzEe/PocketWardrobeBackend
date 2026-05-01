@@ -1,13 +1,15 @@
 package com.example.routes
 
-import com.example.auth.model.UserPrincipal
 import com.example.auth.EnvironmentConfig
-import com.example.usecases.ClotheUseCase
+import com.example.auth.model.UserPrincipal
 import com.example.database.data.model.Clothe
+import com.example.database.data.model.ClotheFilter
 import com.example.database.data.model.PaginatedClothesResponse
+import com.example.database.data.model.RgbColor
 import com.example.database.domain.repository.ClotheRepository
 import com.example.database.domain.repository.UserClotheRepository
 import com.example.services.RemoveBgService
+import com.example.usecases.ClotheUseCase
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
@@ -18,12 +20,13 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.utils.io.jvm.javaio.*
+import kotlinx.serialization.json.Json
 import org.koin.ktor.ext.inject
-import io.ktor.server.plugins.ratelimit.RateLimitName
 import validation.FileUploadValidator
 import java.io.File
 import java.nio.file.Path
 import java.util.*
+import kotlin.math.sqrt
 
 private val uploadsDirPath: Path = Path.of(EnvironmentConfig.uploadsDirectory).toAbsolutePath()
 
@@ -43,26 +46,57 @@ fun Application.clothes() {
             rateLimit(RateLimitName("default")) {
                 authenticate {
                     route("/clothes") {
-                        // Get all clothes for user
-                        // Without ?limit → returns full list (backward compat)
-                        // With ?limit   → returns paginated PaginatedClothesResponse
+                        // Get all clothes for user with optional filtering
+                        // Without ?limit and no filters → returns full list (backward compat)
+                        // With ?limit or filters → returns paginated PaginatedClothesResponse
                         get {
                             val userId = getUserIdOrThrow(call)
                             val limitParam = call.request.queryParameters["limit"]
+                            val params = call.request.queryParameters
 
-                            if (limitParam == null) {
+                            val filter = ClotheFilter(
+                                categories = params.getAll("category")?.takeIf { it.isNotEmpty() },
+                                materials = params.getAll("material")?.takeIf { it.isNotEmpty() },
+                                fits = params.getAll("fit")?.takeIf { it.isNotEmpty() },
+                                seasons = params.getAll("season")?.takeIf { it.isNotEmpty() },
+                                styles = params.getAll("style")?.takeIf { it.isNotEmpty() },
+                                brands = params.getAll("brand")?.takeIf { it.isNotEmpty() },
+                                color = parseColorParam(params),
+                                colorTolerance = params["color_tolerance"]?.toDoubleOrNull() ?: 50.0,
+                                searchQuery = params["q"]
+                            )
+
+                            if (limitParam == null && filter.isEmpty) {
                                 call.respond(clotheRepository.getAllClothes(userId))
                             } else {
-                                val limit = limitParam.toIntOrNull()?.coerceIn(1, 50) ?: 20
-                                val cursor = call.request.queryParameters["cursor"]?.toIntOrNull()
+                                val limit = limitParam?.toIntOrNull()?.coerceIn(1, 50) ?: 20
+                                val cursor = params["cursor"]?.toIntOrNull()
 
-                                val items = clotheRepository.getClothesPaginated(userId, limit + 1, cursor)
-                                val hasMore = items.size > limit
-                                val page = if (hasMore) items.dropLast(1) else items
+                                // Over-fetch when color filter is active (applied in-memory)
+                                val sqlLimit = if (filter.color != null) limit * 3 else limit + 1
+                                val items = clotheRepository.getClothesPaginatedFiltered(userId, sqlLimit, cursor, filter)
+
+                                // Apply color filter in-memory (Euclidean distance)
+                                val filtered = if (filter.color != null) {
+                                    items.filter { clothe ->
+                                        clothe.colors?.any { c ->
+                                            euclideanDistance(c, filter.color) <= filter.colorTolerance
+                                        } == true
+                                    }
+                                } else items
+
+                                val hasMore = filtered.size > limit
+                                val page = if (hasMore) filtered.take(limit) else filtered
                                 val nextCursor = if (hasMore) page.lastOrNull()?.id else null
 
                                 call.respond(PaginatedClothesResponse(data = page, nextCursor = nextCursor, hasMore = hasMore))
                             }
+                        }
+
+                        // Get available filter values for user's collection
+                        get("/filters") {
+                            val userId = getUserIdOrThrow(call)
+                            call.respond(clotheRepository.getAvailableFilters(userId))
                         }
 
                         // Get clothe by name
@@ -144,6 +178,11 @@ fun Application.clothes() {
                             val imageUrl = saveImage(processedImage)
                             val clothe = Clothe(name = form.name, imageUrl = imageUrl, storeUrl = form.storeUrl)
 
+                            // Serialize colors to JSON string
+                            val colorsJson = analysisResult?.colors?.let { colorList ->
+                                Json.encodeToString(colorList.map { RgbColor(it.r, it.g, it.b) })
+                            }
+
                             // 3. Save with analysis results
                             val saved = clotheRepository.addClothe(
                                 clothe = clothe,
@@ -151,7 +190,8 @@ fun Application.clothes() {
                                 fit = analysisResult?.fit,
                                 material = analysisResult?.material,
                                 category = analysisResult?.category,
-                                styleTags = analysisResult?.styleTags
+                                styleTags = analysisResult?.styleTags,
+                                colors = colorsJson
                             )
 
                             // Add clothe to user's wardrobe
@@ -243,6 +283,20 @@ private data class MultipartForm(
         result = 31 * result + (contentType?.hashCode() ?: 0)
         return result
     }
+}
+
+private fun parseColorParam(params: Parameters): RgbColor? {
+    val r = params["color_r"]?.toIntOrNull() ?: return null
+    val g = params["color_g"]?.toIntOrNull() ?: return null
+    val b = params["color_b"]?.toIntOrNull() ?: return null
+    return RgbColor(r, g, b)
+}
+
+private fun euclideanDistance(c1: RgbColor, c2: RgbColor): Double {
+    val dr = (c1.r - c2.r).toDouble()
+    val dg = (c1.g - c2.g).toDouble()
+    val db = (c1.b - c2.b).toDouble()
+    return sqrt(dr * dr + dg * dg + db * db)
 }
 
 private suspend fun parseMultipartForm(call: ApplicationCall): MultipartForm? {

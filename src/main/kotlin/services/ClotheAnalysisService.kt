@@ -44,13 +44,16 @@ class ClotheAnalysisService(
                 ?.joinToString(", ")
                 ?.takeIf { it.isNotBlank() }
 
+            val colors = features.colors?.takeIf { it.isNotEmpty() }
+
             Result.success(
                 ClotheAnalysisResult(
                     category = category,
                     material = material,
                     fit = fit,
                     season = season,
-                    styleTags = styleTags
+                    styleTags = styleTags,
+                    colors = colors
                 )
             )
         } catch (e: Exception) {
@@ -68,7 +71,8 @@ data class ClotheAnalysisResult(
     val material: String?,
     val fit: String?,
     val season: String?,
-    val styleTags: String?
+    val styleTags: String?,
+    val colors: List<ColorInfo>?
 )
 
 // Модели для десериализации JSON ответа от микросервиса
@@ -85,7 +89,7 @@ data class Features(
     val season: SeasonInfo? = null,
     @SerialName("style_tags")
     val style_tags: List<StyleTag>? = null,
-    val colors: List<ColorInfo>? = null // игнорируем, но оставляем для совместимости
+    val colors: List<ColorInfo>? = null
 )
 
 @Serializable
