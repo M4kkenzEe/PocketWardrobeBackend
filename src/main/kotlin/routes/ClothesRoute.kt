@@ -5,7 +5,6 @@ import com.example.auth.model.UserPrincipal
 import com.example.database.data.model.Clothe
 import com.example.database.data.model.ClotheFilter
 import com.example.database.data.model.PaginatedClothesResponse
-import com.example.database.data.model.RgbColor
 import com.example.database.domain.repository.ClotheRepository
 import com.example.database.domain.repository.UserClotheRepository
 import com.example.services.RemoveBgService
@@ -61,7 +60,7 @@ fun Application.clothes() {
                                 seasons = params.getAll("season")?.takeIf { it.isNotEmpty() },
                                 styles = params.getAll("style")?.takeIf { it.isNotEmpty() },
                                 brands = params.getAll("brand")?.takeIf { it.isNotEmpty() },
-                                color = parseColorParam(params),
+                                color = params["color"]?.takeIf { it.matches(Regex("^#[0-9a-fA-F]{6}$")) },
                                 colorTolerance = params["color_tolerance"]?.toDoubleOrNull() ?: 50.0,
                                 searchQuery = params["q"]
                             )
@@ -76,12 +75,16 @@ fun Application.clothes() {
                                 val sqlLimit = if (filter.color != null) limit * 3 else limit + 1
                                 val items = clotheRepository.getClothesPaginatedFiltered(userId, sqlLimit, cursor, filter)
 
-                                // Apply color filter in-memory (Euclidean distance)
+                                // Apply color filter in-memory (Euclidean distance in RGB space)
                                 val filtered = if (filter.color != null) {
-                                    items.filter { clothe ->
-                                        clothe.colors?.any { c ->
-                                            euclideanDistance(c, filter.color) <= filter.colorTolerance
-                                        } == true
+                                    val filterRgb = hexToRgb(filter.color)
+                                    if (filterRgb == null) items else {
+                                        items.filter { clothe ->
+                                            clothe.colors?.any { hex ->
+                                                val rgb = hexToRgb(hex) ?: return@any false
+                                                euclideanDistance(rgb, filterRgb) <= filter.colorTolerance
+                                            } == true
+                                        }
                                     }
                                 } else items
 
@@ -178,9 +181,9 @@ fun Application.clothes() {
                             val imageUrl = saveImage(processedImage)
                             val clothe = Clothe(name = form.name, imageUrl = imageUrl, storeUrl = form.storeUrl)
 
-                            // Serialize colors to JSON string
+                            // Convert RGB colors from analysis service to HEX and serialize
                             val colorsJson = analysisResult?.colors?.let { colorList ->
-                                Json.encodeToString(colorList.map { RgbColor(it.r, it.g, it.b) })
+                                Json.encodeToString(colorList.map { rgbToHex(it.r, it.g, it.b) })
                             }
 
                             // 3. Save with analysis results
@@ -285,17 +288,25 @@ private data class MultipartForm(
     }
 }
 
-private fun parseColorParam(params: Parameters): RgbColor? {
-    val r = params["color_r"]?.toIntOrNull() ?: return null
-    val g = params["color_g"]?.toIntOrNull() ?: return null
-    val b = params["color_b"]?.toIntOrNull() ?: return null
-    return RgbColor(r, g, b)
+private fun rgbToHex(r: Int, g: Int, b: Int): String =
+    "#%02X%02X%02X".format(r.coerceIn(0, 255), g.coerceIn(0, 255), b.coerceIn(0, 255))
+
+private fun hexToRgb(hex: String): Triple<Int, Int, Int>? {
+    val clean = hex.removePrefix("#")
+    if (clean.length != 6) return null
+    return runCatching {
+        Triple(
+            clean.substring(0, 2).toInt(16),
+            clean.substring(2, 4).toInt(16),
+            clean.substring(4, 6).toInt(16)
+        )
+    }.getOrNull()
 }
 
-private fun euclideanDistance(c1: RgbColor, c2: RgbColor): Double {
-    val dr = (c1.r - c2.r).toDouble()
-    val dg = (c1.g - c2.g).toDouble()
-    val db = (c1.b - c2.b).toDouble()
+private fun euclideanDistance(c1: Triple<Int, Int, Int>, c2: Triple<Int, Int, Int>): Double {
+    val dr = (c1.first - c2.first).toDouble()
+    val dg = (c1.second - c2.second).toDouble()
+    val db = (c1.third - c2.third).toDouble()
     return sqrt(dr * dr + dg * dg + db * db)
 }
 

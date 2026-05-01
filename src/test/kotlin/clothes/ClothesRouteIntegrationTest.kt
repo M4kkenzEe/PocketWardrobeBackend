@@ -232,11 +232,11 @@ class ClothesRouteIntegrationTest {
 
     @Test
     fun `GET clothes - white color filter returns only near-white items`() = appTest {
-        // id=100: RGB(255,255,255) distance=0 → included
-        // id=104: RGB(253,252,248) distance≈sqrt(4+9+49)≈7.9 → included within tolerance=30
-        // id=101: RGB(0,0,0) distance≈441 → excluded
+        // id=100: #FFFFFF distance=0 → included
+        // id=104: #FDFCF8 distance≈sqrt(4+9+49)≈7.9 → included within tolerance=30
+        // id=101: #000000 distance≈441 → excluded
         val resp = jsonClient().get(
-            "/api/v1/clothes?color_r=255&color_g=255&color_b=255&color_tolerance=30"
+            "/api/v1/clothes?color=%23FFFFFF&color_tolerance=30"
         ) { bearerAuth(token) }
         assertEquals(HttpStatusCode.OK, resp.status)
 
@@ -249,9 +249,9 @@ class ClothesRouteIntegrationTest {
     }
 
     @Test
-    fun `GET clothes - partial color params without g and b means color filter is ignored`() = appTest {
-        // parseColorParam returns null if any of r/g/b is missing → filter.color == null → no color filter
-        val resp = jsonClient().get("/api/v1/clothes?limit=50&color_r=255") { bearerAuth(token) }
+    fun `GET clothes - invalid hex color means color filter is ignored`() = appTest {
+        // color param with invalid hex → filter.color == null → no color filter applied
+        val resp = jsonClient().get("/api/v1/clothes?limit=50&color=notacolor") { bearerAuth(token) }
         assertEquals(HttpStatusCode.OK, resp.status)
 
         val body = resp.body<PaginatedClothesResponse>()
