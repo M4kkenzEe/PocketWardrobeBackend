@@ -100,3 +100,14 @@ Use `/deploy` slash command or run the script directly:
 ```
 
 **Security:** Never commit `.env` files. Never log SSH private keys. Use `docker secret` or `.env` (in `.gitignore`) for secrets.
+
+## Nginx & SSL
+
+Nginx runs as a Docker container (`wardrobe-nginx`) inside the compose stack.
+
+- Config: `nginx/nginx.conf` — source of truth in this repo, synced to server on every deploy
+- SSL certs: managed by host certbot, mounted into container from `/etc/letsencrypt` (read-only)
+- Cert auto-renewal: `certbot.timer` on host (2x/day) + deploy hook reloads the nginx container
+- Domains: `clothis.tech`, `www.clothis.tech`, `api.clothis.tech` → all proxy to `backend:8080`
+
+To update nginx config: edit `nginx/nginx.conf` locally, then run `/deploy` (or `--server-only`).

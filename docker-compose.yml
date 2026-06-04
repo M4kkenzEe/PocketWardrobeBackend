@@ -38,7 +38,9 @@ services:
     environment:
       # Docker networking overrides
       DB_URL: jdbc:postgresql://postgres:5432
-      SERVER_HOST: 0.0.0.0
+      SERVER_HOST: api.clothis.tech
+      SERVER_SCHEME: https
+      SERVER_PORT: 443
       # External services (Mac/Windows use host.docker.internal)
       REMOVE_BG_SERVICE_URL: http://removebg:8000/
       ANALYSIS_SERVICE_URL: http://ai-analyzer:8088/
@@ -102,6 +104,10 @@ services:
       - DB_NAME=${DB_NAME:-wardrobe}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres1}
+      - UPLOADS_DIR=/app/uploads
+      - BACKEND_HOST=api.clothis.tech
+    volumes:
+      - ./uploads:/app/uploads
     ports:
       - "8001:8001"
     networks:
@@ -125,9 +131,12 @@ services:
       - 80:80
       - 443:443
     volumes:
-      - /root/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     networks:
       - pocketwardrobe_network
+    depends_on:
+      - backend
 
 
 

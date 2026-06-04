@@ -62,10 +62,10 @@ object EnvironmentConfig {
     // Server Configuration
     val serverHost: String = getEnv("SERVER_HOST") ?: "localhost"
     val serverPort: Int = getEnv("SERVER_PORT")?.toIntOrNull() ?: 8080
-    val serverScheme: String = getEnv("SERVER_SCHEME") ?: "http"
+    val serverScheme: String = getEnv("SERVER_SCHEME") ?: "https"
 
     // Build base URL for the server
-    fun getServerBaseUrl(): String = "$serverScheme://$serverHost:$serverPort"
+    fun getServerBaseUrl(): String = "$serverScheme://$serverHost"
 
     // App Configuration (for deep links)
     val appScheme: String = getEnv("APP_SCHEME") ?: "pocketwardrobe"

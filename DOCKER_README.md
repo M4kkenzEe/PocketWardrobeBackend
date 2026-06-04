@@ -10,8 +10,7 @@
 - [Требования](#-требования)
 - [Структура файлов](#-структура-файлов)
 - [Запуск на Mac OS](#-запуск-на-mac-os-разработка)
-- [Запуск на Linux Ubuntu](#-запуск-на-linux-ubuntu-production)
-- [Перенос образа](#-перенос-образа-с-mac-на-ubuntu)
+- [Production деплой](#-production-деплой-сервер-19487190248)
 - [Команды управления](#-команды-управления)
 - [Мониторинг и отладка](#-мониторинг-и-отладка)
 - [Backup и восстановление](#-backup-и-восстановление)
@@ -143,159 +142,68 @@ curl -X POST http://localhost:8080/login \
 
 ---
 
-## 🐧 Запуск на Linux Ubuntu (Production)
+## 🐧 Production деплой (сервер `194.87.190.248`)
 
-### 1. Подготовка на Ubuntu
+Деплой полностью автоматизирован через скрипт. Образы публикуются на DockerHub (`yura91191`), сервер их пуллит.
+
+### Быстрый деплой
 
 ```bash
-# Обновите систему
-sudo apt update && sudo apt upgrade -y
-
-# Установите Docker и Docker Compose (если не установлены)
-sudo apt install docker.io docker-compose -y
-
-# Добавьте пользователя в группу docker
-sudo usermod -aG docker $USER
-newgrp docker
-
-# Проверьте установку
-docker --version
-docker-compose --version
+# Из корня монорепо:
+/deploy                          # полный деплой (build → push → server update)
+.claude/scripts/deploy.sh --server-only  # только обновить сервер без пересборки
 ```
 
-### 2. Получение проекта и образа
+Скрипт автоматически синхронизирует `docker-compose.yml` и `nginx/nginx.conf` на сервер перед рестартом.
 
-**Вариант A: Загрузка сохраненного образа**
-```bash
-# Скопируйте образ с Mac (см. раздел "Перенос образа")
-docker load -i pocketwardrobe-backend.tar
+### Структура на сервере (`/root/`)
 
-# Скопируйте docker-compose файлы и .env
-scp docker-compose.yml docker-compose.prod.yml .env user@ubuntu-server:/home/user/pocketwardrobe/
+```
+/root/
+├── docker-compose.yaml     # синкается из PocketWardrobeBackend/docker-compose.yml
+├── nginx/
+│   └── nginx.conf          # синкается из PocketWardrobeBackend/nginx/nginx.conf
+├── .env                    # на сервере вручную, не коммитится
+├── uploads/                # пользовательские изображения одежды
+└── looks/                  # пользовательские изображения образов
 ```
 
-**Вариант B: Клонирование из Git и сборка**
-```bash
-# Клонируйте репозиторий
-git clone <your-repo-url>
-cd PocketWardrobeBackend
+### Nginx + SSL
 
-# Скопируйте .env из примера и заполните
-cp .env.example .env
-nano .env
+Nginx работает как Docker-контейнер внутри compose. SSL-сертификаты (Let's Encrypt) хранятся на хосте и монтируются в контейнер read-only.
+
+- Домены: `clothis.tech`, `www.clothis.tech`, `api.clothis.tech`
+- HTTP автоматически редиректится на HTTPS
+- Certbot обновляет сертификаты автоматически (2x/день), после чего перезагружает nginx контейнер
+
+**Изменить nginx конфиг:**
+```bash
+# 1. Отредактируйте локально
+nano PocketWardrobeBackend/nginx/nginx.conf
+
+# 2. Задеплойте
+.claude/scripts/deploy.sh --server-only
 ```
 
-### 3. Запуск с production конфигурацией
+### Первоначальная настройка сервера (однократно)
 
 ```bash
-# Сборка (если не используете готовый образ)
-docker-compose build
+# 1. Установить Docker
+apt update && apt install -y docker.io docker-compose-plugin
 
-# Запуск с production overrides
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# 2. Установить certbot и получить сертификат
+apt install -y certbot python3-certbot-nginx
+certbot certonly --standalone -d clothis.tech -d www.clothis.tech -d api.clothis.tech
 
-# Проверка статуса
-docker-compose ps
+# 3. Создать .env
+cp .env.example /root/.env && nano /root/.env
 
-# Проверка логов
-docker-compose logs -f backend
-```
-
-### 4. Настройка для production
-
-**Обновите .env для production:**
-```bash
-# Смените пароль БД
-DB_PASSWORD=strong_production_password_here
-
-# Ограничьте CORS
-CORS_ALLOWED_ORIGINS=https://your-production-domain.com
-
-# Уменьшите уровень логирования
-LOG_LEVEL=WARN
-
-# Если внешние сервисы в Docker, обновите URLs:
-# REMOVE_BG_SERVICE_URL=http://removebg_service:8000/
-# ANALYSIS_SERVICE_URL=http://analysis_service:8088/
+# 4. Запустить стек
+cd /root && docker compose up -d
 ```
 
 ---
 
-## 📤 Перенос образа с Mac на Ubuntu
-
-### Вариант 1: Сохранение в файл (для тестирования)
-
-**На Mac OS:**
-```bash
-# Соберите образ
-docker-compose build
-
-# Найдите имя образа
-docker images | grep pocketwardrobe
-
-# Сохраните образ в tar файл
-docker save -o pocketwardrobe-backend.tar pocketwardrobebackend-backend:latest
-
-# Сжмите для экономии места (опционально)
-gzip pocketwardrobe-backend.tar
-
-# Скопируйте на Ubuntu сервер
-scp pocketwardrobe-backend.tar.gz user@ubuntu-server:/home/user/
-```
-
-**На Linux Ubuntu:**
-```bash
-# Распакуйте (если сжато)
-gunzip pocketwardrobe-backend.tar.gz
-
-# Загрузите образ
-docker load -i pocketwardrobe-backend.tar
-
-# Проверьте
-docker images | grep pocketwardrobe
-```
-
-### Вариант 2: Docker Hub (рекомендуется для production)
-
-**На Mac OS:**
-```bash
-# Залогиньтесь в Docker Hub
-docker login
-
-# Тегируйте образ
-docker tag pocketwardrobebackend-backend:latest yourusername/pocketwardrobe-backend:latest
-
-# Загрузите в Docker Hub
-docker push yourusername/pocketwardrobe-backend:latest
-```
-
-**На Linux Ubuntu:**
-```bash
-# Залогиньтесь
-docker login
-
-# Скачайте образ
-docker pull yourusername/pocketwardrobe-backend:latest
-
-# Обновите docker-compose.prod.yml:
-# backend:
-#   image: yourusername/pocketwardrobe-backend:latest
-#   # Закомментируйте секцию build
-```
-
-### Вариант 3: Сборка на сервере (самый простой)
-
-```bash
-# Скопируйте весь проект
-scp -r PocketWardrobeBackend/ user@ubuntu-server:/home/user/
-
-# На Ubuntu
-cd /home/user/PocketWardrobeBackend
-docker-compose build
-docker-compose up -d
-```
-
----
 
 ## 🎮 Команды управления
 
