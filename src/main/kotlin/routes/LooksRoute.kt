@@ -141,8 +141,8 @@ fun Application.looks() {
                             val userId = call.principal<UserPrincipal>()?.userId
                                 ?: throw IllegalStateException("User not authenticated")
                             try {
-                                val looks = generateLookUseCase.generateAndSaveLooks(userId)
-                                call.respond(HttpStatusCode.OK, looks)
+                                val lookIds = generateLookUseCase.generateAndSaveLooks(userId)
+                                call.respond(HttpStatusCode.OK, mapOf("look_ids" to lookIds))
                             } catch (e: IllegalArgumentException) {
                                 call.respond(
                                     HttpStatusCode.BadRequest,

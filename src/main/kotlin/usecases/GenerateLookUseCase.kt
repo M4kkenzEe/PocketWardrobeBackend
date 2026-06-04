@@ -1,7 +1,6 @@
 package com.example.usecases
 
 import com.example.auth.EnvironmentConfig
-import com.example.database.data.model.Look
 import com.example.database.domain.repository.LookRepository
 import com.example.services.GenerateLookService
 import java.io.File
@@ -11,14 +10,12 @@ class GenerateLookUseCase(
     private val generateLookService: GenerateLookService,
     private val lookRepository: LookRepository
 ) {
-    suspend fun generateAndSaveLooks(userId: Int): List<Look> {
+    suspend fun generateAndSaveLooks(userId: Int): List<Int> {
         val response = generateLookService.generateLooks(userId)
             .getOrElse { e -> throw e }
         val lookIds = response.looks.map { it.lookId }
         lookIds.forEach { lookId -> renderAndSave(lookId) }
-        return lookIds.mapNotNull { lookId ->
-            runCatching { lookRepository.getLookById(lookId, userId) }.getOrNull()
-        }
+        return lookIds
     }
 
     private suspend fun renderAndSave(lookId: Int) {
