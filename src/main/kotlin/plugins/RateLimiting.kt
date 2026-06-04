@@ -5,6 +5,7 @@ import com.example.auth.model.UserPrincipal
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.plugins.ratelimit.*
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -38,7 +39,16 @@ fun Application.configureRateLimiting() {
             }
         }
 
-        // 3. Rate limit for regular authenticated endpoints
+        // 3. Rate limit for AI look generation — expensive operation
+        register(RateLimitName("generate")) {
+            rateLimiter(limit = EnvironmentConfig.rateLimitGenerate, refillPeriod = 1.hours)
+            requestKey { call ->
+                val principal = call.principal<UserPrincipal>()
+                principal?.userId?.toString() ?: call.request.local.remoteHost
+            }
+        }
+
+        // 4. Rate limit for regular authenticated endpoints
         // Most generous - normal API usage
         register(RateLimitName("default")) {
             rateLimiter(limit = EnvironmentConfig.rateLimitDefault, refillPeriod = 1.minutes)
@@ -53,6 +63,7 @@ fun Application.configureRateLimiting() {
     log.info("✓ Rate limiting configured:")
     log.info("  - Auth endpoints: ${EnvironmentConfig.rateLimitAuth} req/min per IP")
     log.info("  - Upload endpoints: ${EnvironmentConfig.rateLimitUpload} req/min per user")
+    log.info("  - Generate endpoint: ${EnvironmentConfig.rateLimitGenerate} req/hour per user")
     log.info("  - Default endpoints: ${EnvironmentConfig.rateLimitDefault} req/min per user")
 }
 

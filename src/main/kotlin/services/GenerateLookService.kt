@@ -8,6 +8,8 @@ import io.ktor.http.*
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 @Serializable
 data class GeneratedLook(
@@ -33,12 +35,10 @@ class GenerateLookService(
             if (response.status.isSuccess()) {
                 Result.success(json.decodeFromString<GenerateLookResponse>(body))
             } else if (response.status.value in 400..499) {
-                val detail = runCatching {
-                    json.parseToJsonElement(body).let {
-                        it.toString().substringAfter("\"detail\":\"").substringBefore("\"")
-                    }
-                }.getOrDefault(body)
-                Result.failure(IllegalArgumentException(detail))
+                val errorKey = runCatching {
+                    json.parseToJsonElement(body).jsonObject["error"]?.jsonPrimitive?.content
+                }.getOrNull() ?: body
+                Result.failure(IllegalArgumentException(errorKey))
             } else {
                 Result.failure(IllegalStateException("Look generation service error ${response.status.value}: $body"))
             }
