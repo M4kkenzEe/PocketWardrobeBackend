@@ -244,6 +244,7 @@ class FakeUserClotheRepository : UserClotheRepository {
     override suspend fun restoreClotheForUser(userId: Int, clotheId: Int): Boolean = true
     override suspend fun isClotheInUserWardrobe(userId: Int, clotheId: Int): Boolean = true
     override suspend fun addClotheById(userId: Int, clotheId: Int): Boolean = true
+    override suspend fun countByUserId(userId: Int): Int = 0
 }
 
 class FakeLookRepository : LookRepository {

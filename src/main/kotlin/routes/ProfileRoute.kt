@@ -1,6 +1,8 @@
 package com.example.routes
 
 import com.example.auth.model.UserPrincipal
+import com.example.database.domain.repository.UserClotheRepository
+import com.example.database.domain.repository.UserLookRepository
 import com.example.database.domain.repository.UserRepository
 import com.example.profile.toProfileResponse
 import io.ktor.server.application.Application
@@ -16,6 +18,8 @@ import io.ktor.server.plugins.ratelimit.RateLimitName
 
 fun Application.profile() {
     val userRepository: UserRepository by inject()
+    val userClotheRepository: UserClotheRepository by inject()
+    val userLookRepository: UserLookRepository by inject()
     routing {
         authenticate {
             route("/api/v1") {
@@ -24,8 +28,11 @@ fun Application.profile() {
                         get {
                             val userId = call.principal<UserPrincipal>()?.userId
                                 ?: throw IllegalStateException("User not authenticated")
-                            val user = userRepository.findUserById(userId)?.toProfileResponse()
-                            call.respond(user!!)
+                            val user = userRepository.findUserById(userId)
+                                ?: throw IllegalStateException("User not found")
+                            val clothesCount = userClotheRepository.countByUserId(userId)
+                            val looksCount = userLookRepository.countByUserId(userId)
+                            call.respond(user.toProfileResponse(clothesCount, looksCount))
                         }
                     }
                 }

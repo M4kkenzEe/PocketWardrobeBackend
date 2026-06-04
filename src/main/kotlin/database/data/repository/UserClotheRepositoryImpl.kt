@@ -83,4 +83,10 @@ class UserClotheRepositoryImpl : UserClotheRepository {
         }
         return true
     }
+
+    override suspend fun countByUserId(userId: Int): Int = suspendTransaction {
+        UserClotheDao.find {
+            (UserClotheTable.userId eq userId) and (UserClotheTable.isDeleted eq false)
+        }.count().toInt()
+    }
 }
