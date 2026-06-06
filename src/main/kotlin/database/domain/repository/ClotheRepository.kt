@@ -19,6 +19,7 @@ interface ClotheRepository {
         material: String? = null,
         category: String? = null,
         styleTags: String? = null,
-        colors: String? = null
+        colors: String? = null,
+        occasion: String? = null
     ): Clothe
 }

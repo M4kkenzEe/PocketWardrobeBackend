@@ -165,7 +165,8 @@ class ClotheRepositoryImpl : ClotheRepository {
         material: String?,
         category: String?,
         styleTags: String?,
-        colors: String?
+        colors: String?,
+        occasion: String?
     ): Clothe = suspendTransaction {
         ClotheDao.new {
             name = clothe.name
@@ -178,6 +179,7 @@ class ClotheRepositoryImpl : ClotheRepository {
             this.styleTags = styleTags
             this.brand = clothe.brand
             this.colors = colors
+            this.occasion = occasion
         }.let { dao ->
             daoToModel(dao)
         }

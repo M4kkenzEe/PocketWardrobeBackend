@@ -194,7 +194,8 @@ fun Application.clothes() {
                                 material = analysisResult?.material,
                                 category = analysisResult?.category,
                                 styleTags = analysisResult?.styleTags,
-                                colors = colorsJson
+                                colors = colorsJson,
+                                occasion = form.occasion
                             )
 
                             // Add clothe to user's wardrobe
@@ -261,7 +262,8 @@ private data class MultipartForm(
     val storeUrl: String,
     val imageBytes: ByteArray,
     val originalFileName: String,
-    val contentType: String?
+    val contentType: String?,
+    val occasion: String? = null
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -316,12 +318,14 @@ private suspend fun parseMultipartForm(call: ApplicationCall): MultipartForm? {
     var imageBytes: ByteArray? = null
     var originalFileName: String? = null
     var contentType: String? = null
+    var occasion: String? = null
 
     call.receiveMultipart().forEachPart { part ->
         when (part) {
             is PartData.FormItem -> when (part.name) {
                 "name" -> name = part.value
                 "storeUrl" -> storeUrl = part.value
+                "occasion" -> occasion = part.value.takeIf { it.isNotBlank() }
             }
 
             is PartData.FileItem -> if (part.name == "image") {
@@ -336,6 +340,6 @@ private suspend fun parseMultipartForm(call: ApplicationCall): MultipartForm? {
     }
 
     return if (name != null && storeUrl != null && imageBytes != null && originalFileName != null) {
-        MultipartForm(name, storeUrl, imageBytes, originalFileName, contentType)
+        MultipartForm(name, storeUrl, imageBytes, originalFileName, contentType, occasion)
     } else null
 }

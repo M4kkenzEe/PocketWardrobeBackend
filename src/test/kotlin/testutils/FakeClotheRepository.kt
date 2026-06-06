@@ -226,12 +226,14 @@ class FakeClotheRepository : ClotheRepository {
 
     override suspend fun addClothe(
         clothe: Clothe, season: String?, fit: String?,
-        material: String?, category: String?, styleTags: String?, colors: String?
+        material: String?, category: String?, styleTags: String?, colors: String?,
+        occasion: String?
     ): Clothe {
         val id = (store.keys.maxOrNull() ?: 0) + 1
         val saved = clothe.copy(
             id = id, season = season, fit = fit,
-            material = material, category = category, styleTags = styleTags
+            material = material, category = category, styleTags = styleTags,
+            occasion = occasion
         )
         store[id] = saved
         return saved
