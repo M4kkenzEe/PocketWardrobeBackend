@@ -94,6 +94,11 @@ class ClotheRepositoryImpl : ClotheRepository {
                     cond = cond and (ClotheTable.name.lowerCase() like pattern)
                 }
 
+                // Occasion filter (case-insensitive exact match)
+                filter.occasion?.takeIf { it.isNotBlank() }?.let { occ ->
+                    cond = cond and (ClotheTable.occasion.lowerCase() eq occ.trim().lowercase())
+                }
+
                 cond
             }
             .orderBy(ClotheTable.id to SortOrder.ASC)

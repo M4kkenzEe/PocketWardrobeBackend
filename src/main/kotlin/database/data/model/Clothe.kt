@@ -102,11 +102,12 @@ data class ClotheFilter(
     val brands: List<String>? = null,
     val color: String? = null,
     val colorTolerance: Double = 50.0,
-    val searchQuery: String? = null
+    val searchQuery: String? = null,
+    val occasion: String? = null
 ) {
     val isEmpty: Boolean get() = categories == null && materials == null &&
         fits == null && seasons == null && styles == null &&
-        brands == null && color == null && searchQuery == null
+        brands == null && color == null && searchQuery == null && occasion == null
 }
 
 @Serializable

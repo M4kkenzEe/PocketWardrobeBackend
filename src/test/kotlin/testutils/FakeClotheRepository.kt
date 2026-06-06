@@ -193,7 +193,11 @@ class FakeClotheRepository : ClotheRepository {
                         (filter.searchQuery.isNullOrBlank() || c.name.contains(
                             filter.searchQuery.trim(),
                             ignoreCase = true
-                        ))
+                        )) &&
+                        (filter.occasion.isNullOrBlank() || c.occasion?.equals(
+                            filter.occasion.trim(),
+                            ignoreCase = true
+                        ) == true)
             }
             .take(limit)
 

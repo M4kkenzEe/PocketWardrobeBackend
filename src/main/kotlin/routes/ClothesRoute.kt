@@ -62,7 +62,8 @@ fun Application.clothes() {
                                 brands = params.getAll("brand")?.takeIf { it.isNotEmpty() },
                                 color = params["color"]?.takeIf { it.matches(Regex("^#[0-9a-fA-F]{6}$")) },
                                 colorTolerance = params["color_tolerance"]?.toDoubleOrNull() ?: 50.0,
-                                searchQuery = params["q"]
+                                searchQuery = params["q"],
+                                occasion = params["occasion"]?.takeIf { it.isNotBlank() }
                             )
 
                             if (limitParam == null && filter.isEmpty) {
