@@ -5,8 +5,10 @@ import com.example.auth.model.UserPrincipal
 import com.example.database.data.model.Clothe
 import com.example.database.data.model.ClotheFilter
 import com.example.database.data.model.PaginatedClothesResponse
+import com.example.database.domain.repository.AddClotheResult
 import com.example.database.domain.repository.ClotheRepository
 import com.example.database.domain.repository.UserClotheRepository
+import com.example.database.domain.repository.UserRepository
 import com.example.services.RemoveBgService
 import com.example.usecases.ClotheUseCase
 import io.ktor.http.*
@@ -19,6 +21,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.utils.io.jvm.javaio.*
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.koin.ktor.ext.inject
 import validation.FileUploadValidator
@@ -27,12 +30,16 @@ import java.nio.file.Path
 import java.util.*
 import kotlin.math.sqrt
 
+@Serializable
+private data class FreemiumLimitError(val error: String, val limit: Int, val current: Int)
+
 private val uploadsDirPath: Path = Path.of(EnvironmentConfig.uploadsDirectory).toAbsolutePath()
 
 
 fun Application.clothes() {
     val clotheRepository: ClotheRepository by inject()
     val userClotheRepository: UserClotheRepository by inject()
+    val userRepository: UserRepository by inject()
     val removeBgService: RemoveBgService by inject()
     val clotheAnalysisService: com.example.services.ClotheAnalysisService by inject()
     val usecase: ClotheUseCase by inject()
@@ -155,6 +162,21 @@ fun Application.clothes() {
                         // Upload new clothe with image
                         post {
                             val userId = getUserIdOrThrow(call)
+
+                            // Fast pre-check before expensive image processing
+                            val user = userRepository.findUserById(userId)
+                                ?: throw IllegalStateException("User not found")
+                            if (!user.isPro) {
+                                val count = userClotheRepository.countByUserId(userId)
+                                if (count >= 100) {
+                                    log.info("FREEMIUM_LIMIT hit: user_id=$userId count=$count")
+                                    return@post call.respond(
+                                        HttpStatusCode.PaymentRequired,
+                                        FreemiumLimitError(error = "FREEMIUM_LIMIT", limit = 100, current = count)
+                                    )
+                                }
+                            }
+
                             val form = parseMultipartForm(call)
                                 ?: return@post call.respond(HttpStatusCode.BadRequest, "Missing required fields")
 
@@ -199,8 +221,17 @@ fun Application.clothes() {
                                 occasion = form.occasion
                             )
 
-                            // Add clothe to user's wardrobe
-                            userClotheRepository.addClotheToUser(userId, saved.id!!)
+                            // 4. Atomic: count-check + add in single transaction to prevent race conditions
+                            when (val addResult = userClotheRepository.addClotheToUserAtomic(userId, saved.id!!, user.isPro)) {
+                                is AddClotheResult.FreemiumLimitReached -> {
+                                    log.info("FREEMIUM_LIMIT hit (atomic): user_id=$userId count=${addResult.current}")
+                                    return@post call.respond(
+                                        HttpStatusCode.PaymentRequired,
+                                        FreemiumLimitError(error = "FREEMIUM_LIMIT", limit = addResult.limit, current = addResult.current)
+                                    )
+                                }
+                                is AddClotheResult.Success -> Unit
+                            }
 
                             val result = clotheRepository.getClotheById(saved.id)
                                 ?: throw NoSuchElementException("Failed to retrieve created clothe")
@@ -214,6 +245,20 @@ fun Application.clothes() {
                             val url = call.parameters["url"]?.takeIf { it.isNotBlank() }
                                 ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing url")
 
+                            // Fast pre-check before downloading image
+                            val user = userRepository.findUserById(userId)
+                                ?: throw IllegalStateException("User not found")
+                            if (!user.isPro) {
+                                val count = userClotheRepository.countByUserId(userId)
+                                if (count >= 100) {
+                                    log.info("FREEMIUM_LIMIT hit: user_id=$userId count=$count")
+                                    return@get call.respond(
+                                        HttpStatusCode.PaymentRequired,
+                                        FreemiumLimitError(error = "FREEMIUM_LIMIT", limit = 100, current = count)
+                                    )
+                                }
+                            }
+
                             val imageFile = removeBgService.getImageFromUrl(url).getOrNull()
                                 ?: return@get call.respond(HttpStatusCode.InternalServerError, "Image download failed")
 
@@ -221,8 +266,17 @@ fun Application.clothes() {
                             val clothe = Clothe(name = "", imageUrl = imageUrl, storeUrl = url)
                             val saved = clotheRepository.addClothe(clothe)
 
-                            // Add clothe to user's wardrobe
-                            userClotheRepository.addClotheToUser(userId, saved.id!!)
+                            // Atomic: count-check + add in single transaction to prevent race conditions
+                            when (val addResult = userClotheRepository.addClotheToUserAtomic(userId, saved.id!!, user.isPro)) {
+                                is AddClotheResult.FreemiumLimitReached -> {
+                                    log.info("FREEMIUM_LIMIT hit (atomic): user_id=$userId count=${addResult.current}")
+                                    return@get call.respond(
+                                        HttpStatusCode.PaymentRequired,
+                                        FreemiumLimitError(error = "FREEMIUM_LIMIT", limit = addResult.limit, current = addResult.current)
+                                    )
+                                }
+                                is AddClotheResult.Success -> Unit
+                            }
 
                             val result = clotheRepository.getClotheById(saved.id)
                                 ?: throw NoSuchElementException("Failed to retrieve created clothe")

@@ -6,6 +6,7 @@ import com.example.database.data.model.ClotheTable
 import com.example.database.data.model.UserClotheDao
 import com.example.database.data.model.UserClotheTable
 import com.example.database.data.model.UserTable
+import com.example.database.domain.repository.AddClotheResult
 import com.example.database.domain.repository.UserClotheRepository
 import com.example.database.suspendTransaction
 import org.jetbrains.exposed.v1.core.and
@@ -88,5 +89,36 @@ class UserClotheRepositoryImpl : UserClotheRepository {
         UserClotheDao.find {
             (UserClotheTable.userId eq userId) and (UserClotheTable.isDeleted eq false)
         }.count().toInt()
+    }
+
+    override suspend fun addClotheToUserAtomic(
+        userId: Int,
+        clotheId: Int,
+        isPro: Boolean,
+        limit: Int
+    ): AddClotheResult = suspendTransaction {
+        val current = UserClotheDao.find {
+            (UserClotheTable.userId eq userId) and (UserClotheTable.isDeleted eq false)
+        }.count().toInt()
+
+        if (!isPro && current >= limit) {
+            return@suspendTransaction AddClotheResult.FreemiumLimitReached(current = current, limit = limit)
+        }
+
+        val existing = UserClotheDao.find {
+            (UserClotheTable.userId eq userId) and (UserClotheTable.clotheId eq clotheId)
+        }.firstOrNull()
+
+        if (existing != null && existing.isDeleted) {
+            existing.isDeleted = false
+        } else if (existing == null) {
+            UserClotheDao.new {
+                this.userId = EntityID(userId, UserTable)
+                this.clotheId = EntityID(clotheId, ClotheTable)
+                this.isDeleted = false
+            }
+        }
+
+        AddClotheResult.Success(clotheId)
     }
 }

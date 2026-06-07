@@ -5,9 +5,12 @@ import com.example.database.data.model.Clothe
 import com.example.database.data.model.ClotheFilter
 import com.example.database.data.model.Look
 import com.example.database.domain.model.LookPreview
+import com.example.database.data.model.User
+import com.example.database.domain.repository.AddClotheResult
 import com.example.database.domain.repository.ClotheRepository
 import com.example.database.domain.repository.LookRepository
 import com.example.database.domain.repository.UserClotheRepository
+import com.example.database.domain.repository.UserRepository
 
 const val TEST_USER_ID = 1
 
@@ -244,13 +247,25 @@ class FakeClotheRepository : ClotheRepository {
     }
 }
 
-class FakeUserClotheRepository : UserClotheRepository {
+class FakeUserClotheRepository(private val clotheCount: Int = 0, private val isPro: Boolean = false) : UserClotheRepository {
     override suspend fun addClotheToUser(userId: Int, clotheId: Int): Boolean = true
     override suspend fun removeClotheFromUser(userId: Int, clotheId: Int): Boolean = true
     override suspend fun restoreClotheForUser(userId: Int, clotheId: Int): Boolean = true
     override suspend fun isClotheInUserWardrobe(userId: Int, clotheId: Int): Boolean = true
     override suspend fun addClotheById(userId: Int, clotheId: Int): Boolean = true
-    override suspend fun countByUserId(userId: Int): Int = 0
+    override suspend fun countByUserId(userId: Int): Int = clotheCount
+    override suspend fun addClotheToUserAtomic(userId: Int, clotheId: Int, isPro: Boolean, limit: Int): AddClotheResult =
+        if (!isPro && clotheCount >= limit) AddClotheResult.FreemiumLimitReached(current = clotheCount, limit = limit)
+        else AddClotheResult.Success(clotheId)
+}
+
+class FakeUserRepository(private val isPro: Boolean = false) : UserRepository {
+    override suspend fun register(user: User): User? = null
+    override suspend fun findUserByUsername(userName: String): User? = null
+    override suspend fun findUserByEmail(email: String): User? = null
+    override suspend fun findUserById(userId: Int): User =
+        User(userId = userId, username = "testuser", email = "test@test.com", passwordHash = "", gender = null, isPro = isPro)
+    override suspend fun authenticate(username: String, password: String): User? = null
 }
 
 class FakeLookRepository : LookRepository {
