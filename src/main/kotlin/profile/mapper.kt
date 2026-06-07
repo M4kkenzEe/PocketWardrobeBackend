@@ -7,5 +7,6 @@ fun User.toProfileResponse(clothesCount: Int, looksCount: Int) = UserProfileResp
     email = email,
     gender = gender ?: "OTHER",
     clothes_count = clothesCount,
-    looks_count = looksCount
+    looks_count = looksCount,
+    is_pro = isPro
 )

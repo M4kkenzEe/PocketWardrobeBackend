@@ -10,14 +10,16 @@ data class User(
     val username: String,
     val email: String,
     val passwordHash: String,
-    val gender: String?
+    val gender: String?,
+    val isPro: Boolean = false
 )
 
 object UserTable : IntIdTable("users") {
     val username = varchar("username", 50).uniqueIndex()
     val email = varchar("email", 100).uniqueIndex()
-    val passwordHash = varchar("password_hash", 256) // For hashed passwords
+    val passwordHash = varchar("password_hash", 256)
     val gender = varchar("gender", 20).nullable()
+    val isPro = bool("is_pro").default(false)
 }
 
 class UserDao(id: EntityID<Int>) : IntEntity(id) {
@@ -27,6 +29,7 @@ class UserDao(id: EntityID<Int>) : IntEntity(id) {
     var email by UserTable.email
     var passwordHash by UserTable.passwordHash
     var gender by UserTable.gender
+    var isPro by UserTable.isPro
 }
 
 fun daoToModel(dao: UserDao) = User(
@@ -34,5 +37,6 @@ fun daoToModel(dao: UserDao) = User(
     username = dao.username,
     email = dao.email,
     passwordHash = dao.passwordHash,
-    gender = dao.gender
+    gender = dao.gender,
+    isPro = dao.isPro
 )
