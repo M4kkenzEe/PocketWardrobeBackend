@@ -160,6 +160,11 @@ components:
             type: string
             pattern: "^#[0-9A-Fa-f]{6}$"
           example: ["#FFFFFF", "#C8B4A0"]
+        occasion:
+          type: string
+          nullable: true
+          description: Use-case tag set by the user (e.g. office, casual, sport, party)
+          example: "office"
 
     AvailableFiltersResponse:
       type: object
@@ -324,6 +329,20 @@ components:
         gender:
           type: string
           example: "FEMALE"
+        clothes_count:
+          type: integer
+          format: int32
+          description: Total number of clothing items in the user's wardrobe
+          example: 23
+        looks_count:
+          type: integer
+          format: int32
+          description: Total number of looks saved by the user
+          example: 5
+        is_pro:
+          type: boolean
+          description: Whether the user has an active Pro subscription
+          example: false
 
     # ── Health ────────────────────────────────────────────────────────────
     HealthResponse:
@@ -755,6 +774,15 @@ paths:
             Maximum Euclidean distance in RGB space to consider a color match.
             `0` = exact match, `441` = any color. Default `50.0`.
           example: 30
+        - name: occasion
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Filter by occasion tag (case-insensitive exact match).
+            Empty string is ignored and returns all items.
+          example: "office"
       responses:
         "200":
           description: |
@@ -785,6 +813,7 @@ paths:
                       styleTags: "casual,minimalist"
                       brand: "Nike"
                       colors: ["#FFFFFF", "#C8B4A0"]
+                      occasion: "office"
                 paginated:
                   summary: "With ?limit=20 → paginated response"
                   value:
@@ -800,6 +829,7 @@ paths:
                         styleTags: "casual,minimalist"
                         brand: "Nike"
                         colors: ["#FFFFFF", "#C8B4A0"]
+                        occasion: "office"
                     nextCursor: 34
                     hasMore: true
                 lastPage:
@@ -817,6 +847,7 @@ paths:
                         styleTags: "casual"
                         brand: null
                         colors: ["#1A1A1A"]
+                        occasion: null
                     nextCursor: null
                     hasMore: false
         "401":
@@ -826,10 +857,11 @@ paths:
       tags: [Clothes]
       summary: Upload a new clothing item with image
       description: |
-        Accepts a multipart form with three parts:
-        - `name` — display name (text)
-        - `storeUrl` — product page URL (text)
-        - `image` — JPEG or PNG file
+        Accepts a multipart form with the following parts:
+        - `name` — display name (text, required)
+        - `storeUrl` — product page URL (text, required)
+        - `image` — JPEG or PNG file (required)
+        - `occasion` — use-case tag (text, optional, e.g. `office`, `casual`, `sport`)
 
         The image is processed through background removal and AI fashion analysis
         before being saved. AI-detected attributes (`season`, `fit`, `material`,
@@ -853,6 +885,10 @@ paths:
                 storeUrl:
                   type: string
                   example: "https://store.example.com/white-oxford"
+                occasion:
+                  type: string
+                  description: Optional use-case tag (e.g. office, casual, sport, party, travel)
+                  example: "office"
                 image:
                   type: string
                   format: binary
@@ -875,6 +911,7 @@ paths:
                 styleTags: "casual,minimalist"
                 brand: "Nike"
                 colors: ["#FFFFFF", "#C8B4A0"]
+                occasion: "office"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -1174,8 +1211,11 @@ paths:
       tags: [Looks]
       summary: AI-generate outfit looks from the user's wardrobe
       description: |
-        Calls the AI look-generation service, saves the resulting looks,
-        and returns their IDs. Generation may take a few seconds.
+        Proxies to the RecommendationService which generates outfit combinations
+        from the user's wardrobe items. Saves the resulting looks and returns their IDs.
+        Generation may take a few seconds.
+
+        **Rate limited:** 5 requests per hour per user.
       operationId: generateLooks
       security:
         - BearerAuth: []
@@ -1188,8 +1228,28 @@ paths:
                 $ref: "#/components/schemas/LookIdsResponse"
               example:
                 lookIds: [7, 8, 9]
+        "400":
+          description: Not enough clothing items to generate looks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Not enough clothes"
+                message: "Add at least 3 clothing items to generate looks"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          description: RecommendationService is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Service unavailable"
+                message: "Look generation service is temporarily unavailable"
 
   /api/v1/looks/byId/{lookId}:
     get:
@@ -1455,5 +1515,8 @@ paths:
                 name: "alice_w"
                 email: "alice@example.com"
                 gender: "FEMALE"
+                clothes_count: 23
+                looks_count: 5
+                is_pro: false
         "401":
           $ref: "#/components/responses/Unauthorized"
