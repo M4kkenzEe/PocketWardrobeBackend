@@ -47,6 +47,7 @@ fun Application.module() {
     looks()
     sharedLooks()
     profile()
+    affiliate()
     configureSwagger()
 
     log.info("=" + "=".repeat(69))

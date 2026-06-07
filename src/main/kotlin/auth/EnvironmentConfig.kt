@@ -108,6 +108,10 @@ object EnvironmentConfig {
         require(it > 0) { "RATE_LIMIT_GENERATE must be positive" }
     } ?: 5
 
+    val rateLimitAffiliate: Int = getEnv("RATE_LIMIT_AFFILIATE")?.toIntOrNull()?.also {
+        require(it > 0) { "RATE_LIMIT_AFFILIATE must be positive" }
+    } ?: 60
+
     // Database Connection Pool Configuration
     val dbPoolSize: Int = getEnv("DB_POOL_SIZE")?.toIntOrNull()?.also {
         require(it > 0) { "DB_POOL_SIZE must be positive" }

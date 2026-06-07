@@ -48,7 +48,16 @@ fun Application.configureRateLimiting() {
             }
         }
 
-        // 4. Rate limit for regular authenticated endpoints
+        // 4. Rate limit for affiliate link generation
+        register(RateLimitName("affiliate")) {
+            rateLimiter(limit = EnvironmentConfig.rateLimitAffiliate, refillPeriod = 1.minutes)
+            requestKey { call ->
+                val principal = call.principal<UserPrincipal>()
+                principal?.userId?.toString() ?: call.request.local.remoteHost
+            }
+        }
+
+        // 5. Rate limit for regular authenticated endpoints
         // Most generous - normal API usage
         register(RateLimitName("default")) {
             rateLimiter(limit = EnvironmentConfig.rateLimitDefault, refillPeriod = 1.minutes)
@@ -64,6 +73,7 @@ fun Application.configureRateLimiting() {
     log.info("  - Auth endpoints: ${EnvironmentConfig.rateLimitAuth} req/min per IP")
     log.info("  - Upload endpoints: ${EnvironmentConfig.rateLimitUpload} req/min per user")
     log.info("  - Generate endpoint: ${EnvironmentConfig.rateLimitGenerate} req/hour per user")
+    log.info("  - Affiliate endpoint: ${EnvironmentConfig.rateLimitAffiliate} req/min per user")
     log.info("  - Default endpoints: ${EnvironmentConfig.rateLimitDefault} req/min per user")
 }
 
