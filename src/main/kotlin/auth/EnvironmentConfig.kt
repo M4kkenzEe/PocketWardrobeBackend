@@ -135,4 +135,9 @@ object EnvironmentConfig {
 
     // Logging Configuration
     val logLevel: String = getEnv("LOG_LEVEL") ?: "INFO"
+
+    // Affiliate / Admitad Configuration (optional — graceful degradation if not set)
+    val admitadWbId: String? = getEnv("ADMITAD_WB_ID")?.takeIf { it.isNotBlank() }
+    val admitadOzonId: String? = getEnv("ADMITAD_OZON_ID")?.takeIf { it.isNotBlank() }
+    val admitadLamodaId: String? = getEnv("ADMITAD_LAMODA_ID")?.takeIf { it.isNotBlank() }
 }

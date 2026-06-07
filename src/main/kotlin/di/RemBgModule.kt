@@ -1,6 +1,7 @@
 package com.example.di
 
 import com.example.auth.EnvironmentConfig
+import com.example.services.AffiliateService
 import com.example.services.ClotheAnalysisService
 import com.example.services.GenerateLookService
 import com.example.services.RemoveBgService
@@ -43,6 +44,14 @@ fun remBgModule(environment: ApplicationEnvironment) = module {
         GenerateLookService(
             client = get(),
             generateLookServiceUrl = EnvironmentConfig.lookGenerationServiceUrl
+        )
+    }
+
+    single<AffiliateService> {
+        AffiliateService(
+            admitadWbId = EnvironmentConfig.admitadWbId,
+            admitadOzonId = EnvironmentConfig.admitadOzonId,
+            admitadLamodaId = EnvironmentConfig.admitadLamodaId
         )
     }
 }
