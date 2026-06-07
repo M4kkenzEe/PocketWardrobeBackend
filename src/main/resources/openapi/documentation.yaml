@@ -12,6 +12,8 @@ info:
     a new pair without re-authenticating.
 
 servers:
+  - url: https://api.clothis.tech
+    description: Production
   - url: http://localhost:8080
     description: Local development
 
@@ -26,6 +28,8 @@ tags:
     description: Public look preview and import
   - name: Profile
     description: Authenticated user profile — JWT required
+  - name: Affiliate
+    description: Affiliate link generation for marketplace items — JWT required (60 req/min)
   - name: Health
     description: Service liveness and readiness
 
@@ -344,6 +348,60 @@ components:
           description: Whether the user has an active Pro subscription
           example: false
 
+    # ── Affiliate ─────────────────────────────────────────────────────────
+    AffiliateLinkRequest:
+      type: object
+      required: [product_url]
+      properties:
+        product_url:
+          type: string
+          description: Original product page URL (must be http/https)
+          example: "https://www.wildberries.ru/catalog/12345678/detail.aspx"
+        marketplace:
+          type: string
+          nullable: true
+          description: |
+            Optional marketplace hint. If omitted, marketplace is auto-detected from the URL domain.
+            Supported values: `wildberries`, `ozon`, `lamoda`.
+          enum: [wildberries, ozon, lamoda]
+          example: "wildberries"
+
+    AffiliateLinkResponse:
+      type: object
+      properties:
+        affiliate_url:
+          type: string
+          description: |
+            Admitad affiliate-wrapped URL. When campaign ID is not configured for
+            the marketplace, the original `product_url` is returned unchanged.
+          example: "https://ad.admitad.com/g/abc123/?ulp=https%3A%2F%2Fwww.wildberries.ru%2Fcatalog%2F12345678%2Fdetail.aspx"
+
+    AffiliateError:
+      type: object
+      properties:
+        error:
+          type: string
+          enum: [invalid_url, unknown_marketplace]
+          example: "unknown_marketplace"
+
+    # ── Freemium ──────────────────────────────────────────────────────────
+    FreemiumLimitError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "FREEMIUM_LIMIT"
+        limit:
+          type: integer
+          format: int32
+          description: Maximum items allowed on free tier
+          example: 100
+        current:
+          type: integer
+          format: int32
+          description: Current item count for the user
+          example: 100
+
     # ── Health ────────────────────────────────────────────────────────────
     HealthResponse:
       type: object
@@ -499,6 +557,18 @@ components:
           example:
             error: "Too many requests"
             message: "Rate limit exceeded. Please try again later."
+
+    FreemiumLimit:
+      description: |
+        Free tier item limit reached (100 items). Upgrade to Pro to add more clothing.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/FreemiumLimitError"
+          example:
+            error: "FREEMIUM_LIMIT"
+            limit: 100
+            current: 100
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
 paths:
@@ -916,6 +986,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/FreemiumLimit"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         "500":
@@ -987,6 +1059,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/FreemiumLimit"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         "500":
@@ -1493,6 +1567,73 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ── Affiliate ────────────────────────────────────────────────────────────────
+  /api/v1/affiliate/link:
+    post:
+      tags: [Affiliate]
+      summary: Generate an affiliate link for a marketplace product
+      description: |
+        Wraps a marketplace product URL into an Admitad affiliate link.
+
+        **Supported marketplaces:** Wildberries, Ozon, Lamoda.
+
+        If `marketplace` is omitted, it is auto-detected from the URL domain:
+        - `wildberries.ru` → `wildberries`
+        - `ozon.ru` → `ozon`
+        - `lamoda.ru` → `lamoda`
+
+        If the Admitad campaign ID is not configured on the server for the given
+        marketplace, the **original URL is returned unchanged** (graceful degradation).
+
+        **Rate limited:** 60 requests per minute per user.
+      operationId: generateAffiliateLink
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AffiliateLinkRequest"
+            examples:
+              autoDetect:
+                summary: Auto-detect marketplace from URL
+                value:
+                  product_url: "https://www.wildberries.ru/catalog/12345678/detail.aspx"
+              explicit:
+                summary: Explicitly specify marketplace
+                value:
+                  product_url: "https://www.ozon.ru/product/123456789"
+                  marketplace: "ozon"
+      responses:
+        "200":
+          description: Affiliate link generated (or original URL if campaign not configured)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AffiliateLinkResponse"
+              example:
+                affiliate_url: "https://ad.admitad.com/g/abc123/?ulp=https%3A%2F%2Fwww.wildberries.ru%2Fcatalog%2F12345678%2Fdetail.aspx"
+        "400":
+          description: Invalid URL or unknown marketplace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AffiliateError"
+              examples:
+                invalidUrl:
+                  summary: Malformed or non-http URL
+                  value:
+                    error: "invalid_url"
+                unknownMarketplace:
+                  summary: URL domain not recognized and no explicit marketplace given
+                  value:
+                    error: "unknown_marketplace"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "429":
           $ref: "#/components/responses/TooManyRequests"
 
