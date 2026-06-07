@@ -31,7 +31,11 @@ const val TEST_JWT_SECRET   = "test-secret-key-for-pocket-wardrobe-tests-32ch"
 const val TEST_JWT_ISSUER   = "pocket-wardrobe-test"
 const val TEST_JWT_AUDIENCE = "pocket-wardrobe-test-audience"
 
-fun Application.testClothesModule(clotheRepo: ClotheRepository, userRepo: UserRepository = FakeUserRepository()) {
+fun Application.testClothesModule(
+    clotheRepo: ClotheRepository,
+    userRepo: UserRepository = FakeUserRepository(),
+    userClotheRepo: UserClotheRepository = FakeUserClotheRepository()
+) {
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true })
     }
@@ -80,7 +84,7 @@ fun Application.testClothesModule(clotheRepo: ClotheRepository, userRepo: UserRe
     install(Koin) {
         modules(module {
             single<ClotheRepository> { clotheRepo }
-            single<UserClotheRepository> { FakeUserClotheRepository() }
+            single<UserClotheRepository> { userClotheRepo }
             single<UserRepository> { userRepo }
             single<RemoveBgService> {
                 RemoveBgService(KtorHttpClient(CIO), "http://stub/", "uploads")
