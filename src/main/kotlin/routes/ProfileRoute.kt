@@ -1,6 +1,7 @@
 package com.example.routes
 
 import com.example.auth.model.UserPrincipal
+import com.example.database.domain.repository.DailyQuotaRepository
 import com.example.database.domain.repository.UserClotheRepository
 import com.example.database.domain.repository.UserLookRepository
 import com.example.database.domain.repository.UserRepository
@@ -13,6 +14,9 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.get
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import org.koin.ktor.ext.inject
 import io.ktor.server.plugins.ratelimit.RateLimitName
 
@@ -20,6 +24,7 @@ fun Application.profile() {
     val userRepository: UserRepository by inject()
     val userClotheRepository: UserClotheRepository by inject()
     val userLookRepository: UserLookRepository by inject()
+    val dailyQuotaRepository: DailyQuotaRepository by inject()
     routing {
         authenticate {
             route("/api/v1") {
@@ -32,7 +37,9 @@ fun Application.profile() {
                                 ?: throw IllegalStateException("User not found")
                             val clothesCount = userClotheRepository.countByUserId(userId)
                             val looksCount = userLookRepository.countByUserId(userId)
-                            call.respond(user.toProfileResponse(clothesCount, looksCount))
+                            val today = Clock.System.now().toLocalDateTime(TimeZone.of("Europe/Moscow")).date
+                            val quotaToday = dailyQuotaRepository.getCount(userId, today)
+                            call.respond(user.toProfileResponse(clothesCount, looksCount, quotaToday))
                         }
                     }
                 }
