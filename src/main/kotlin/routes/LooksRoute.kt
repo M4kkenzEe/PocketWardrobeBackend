@@ -136,14 +136,28 @@ fun Application.looks() {
                         }
                     }
 
-                    rateLimit(RateLimitName("default")) {
+                    rateLimit(RateLimitName("generate")) {
                         get("/generate") {
                             val userId = call.principal<UserPrincipal>()?.userId
                                 ?: throw IllegalStateException("User not authenticated")
-                            val lookIds = generateLookUseCase.generateAndSaveLooks(userId)
-                            call.respond(HttpStatusCode.OK, mapOf("lookIds" to lookIds))
+                            try {
+                                val lookIds = generateLookUseCase.generateAndSaveLooks(userId)
+                                call.respond(HttpStatusCode.OK, mapOf("look_ids" to lookIds))
+                            } catch (e: IllegalArgumentException) {
+                                call.respond(
+                                    HttpStatusCode.BadRequest,
+                                    mapOf("error" to "not_enough_clothes")
+                                )
+                            } catch (e: Exception) {
+                                call.respond(
+                                    HttpStatusCode.ServiceUnavailable,
+                                    mapOf("error" to "AI service unavailable")
+                                )
+                            }
                         }
+                    }
 
+                    rateLimit(RateLimitName("default")) {
                         get("/byId/{lookId}") {
                             val userId = call.principal<UserPrincipal>()?.userId
                                 ?: throw IllegalStateException("User not authenticated")

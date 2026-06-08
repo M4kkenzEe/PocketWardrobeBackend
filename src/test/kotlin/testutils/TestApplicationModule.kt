@@ -5,6 +5,7 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.example.auth.model.UserPrincipal
 import com.example.database.domain.repository.ClotheRepository
 import com.example.database.domain.repository.UserClotheRepository
+import com.example.database.domain.repository.UserRepository
 import com.example.routes.clothes
 import com.example.services.ClotheAnalysisService
 import com.example.services.RemoveBgService
@@ -30,7 +31,11 @@ const val TEST_JWT_SECRET   = "test-secret-key-for-pocket-wardrobe-tests-32ch"
 const val TEST_JWT_ISSUER   = "pocket-wardrobe-test"
 const val TEST_JWT_AUDIENCE = "pocket-wardrobe-test-audience"
 
-fun Application.testClothesModule(clotheRepo: ClotheRepository) {
+fun Application.testClothesModule(
+    clotheRepo: ClotheRepository,
+    userRepo: UserRepository = FakeUserRepository(),
+    userClotheRepo: UserClotheRepository = FakeUserClotheRepository()
+) {
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true })
     }
@@ -79,7 +84,8 @@ fun Application.testClothesModule(clotheRepo: ClotheRepository) {
     install(Koin) {
         modules(module {
             single<ClotheRepository> { clotheRepo }
-            single<UserClotheRepository> { FakeUserClotheRepository() }
+            single<UserClotheRepository> { userClotheRepo }
+            single<UserRepository> { userRepo }
             single<RemoveBgService> {
                 RemoveBgService(KtorHttpClient(CIO), "http://stub/", "uploads")
             }

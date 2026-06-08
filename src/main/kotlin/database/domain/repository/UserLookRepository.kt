@@ -5,4 +5,5 @@ interface UserLookRepository {
     suspend fun removeLookFromUser(userId: Int, lookId: Int): Boolean
     suspend fun restoreLookForUser(userId: Int, lookId: Int): Boolean
     suspend fun isLookInUserWardrobe(userId: Int, lookId: Int): Boolean
+    suspend fun countByUserId(userId: Int): Int
 }

@@ -104,6 +104,14 @@ object EnvironmentConfig {
         require(it > 0) { "RATE_LIMIT_DEFAULT must be positive" }
     } ?: 100
 
+    val rateLimitGenerate: Int = getEnv("RATE_LIMIT_GENERATE")?.toIntOrNull()?.also {
+        require(it > 0) { "RATE_LIMIT_GENERATE must be positive" }
+    } ?: 5
+
+    val rateLimitAffiliate: Int = getEnv("RATE_LIMIT_AFFILIATE")?.toIntOrNull()?.also {
+        require(it > 0) { "RATE_LIMIT_AFFILIATE must be positive" }
+    } ?: 60
+
     // Database Connection Pool Configuration
     val dbPoolSize: Int = getEnv("DB_POOL_SIZE")?.toIntOrNull()?.also {
         require(it > 0) { "DB_POOL_SIZE must be positive" }
@@ -131,4 +139,9 @@ object EnvironmentConfig {
 
     // Logging Configuration
     val logLevel: String = getEnv("LOG_LEVEL") ?: "INFO"
+
+    // Affiliate / Admitad Configuration (optional — graceful degradation if not set)
+    val admitadWbId: String? = getEnv("ADMITAD_WB_ID")?.takeIf { it.isNotBlank() }
+    val admitadOzonId: String? = getEnv("ADMITAD_OZON_ID")?.takeIf { it.isNotBlank() }
+    val admitadLamodaId: String? = getEnv("ADMITAD_LAMODA_ID")?.takeIf { it.isNotBlank() }
 }

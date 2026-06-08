@@ -72,4 +72,10 @@ class UserLookRepositoryImpl : UserLookRepository {
             (UserLookTable.isDeleted eq false)
         }.firstOrNull() != null
     }
+
+    override suspend fun countByUserId(userId: Int): Int = suspendTransaction {
+        UserLookDao.find {
+            (UserLookTable.userId eq userId) and (UserLookTable.isDeleted eq false)
+        }.count().toInt()
+    }
 }

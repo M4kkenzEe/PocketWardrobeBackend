@@ -94,6 +94,11 @@ class ClotheRepositoryImpl : ClotheRepository {
                     cond = cond and (ClotheTable.name.lowerCase() like pattern)
                 }
 
+                // Occasion filter (case-insensitive exact match)
+                filter.occasion?.takeIf { it.isNotBlank() }?.let { occ ->
+                    cond = cond and (ClotheTable.occasion.lowerCase() eq occ.trim().lowercase())
+                }
+
                 cond
             }
             .orderBy(ClotheTable.id to SortOrder.ASC)
@@ -165,7 +170,8 @@ class ClotheRepositoryImpl : ClotheRepository {
         material: String?,
         category: String?,
         styleTags: String?,
-        colors: String?
+        colors: String?,
+        occasion: String?
     ): Clothe = suspendTransaction {
         ClotheDao.new {
             name = clothe.name
@@ -178,6 +184,7 @@ class ClotheRepositoryImpl : ClotheRepository {
             this.styleTags = styleTags
             this.brand = clothe.brand
             this.colors = colors
+            this.occasion = occasion
         }.let { dao ->
             daoToModel(dao)
         }

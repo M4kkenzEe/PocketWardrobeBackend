@@ -20,7 +20,8 @@ data class Clothe(
     val category: String? = null,
     val styleTags: String? = null,
     val brand: String? = null,
-    val colors: List<String>? = null
+    val colors: List<String>? = null,
+    val occasion: String? = null
 )
 
 object ClotheTable : IntIdTable("clothes") {
@@ -34,6 +35,7 @@ object ClotheTable : IntIdTable("clothes") {
     val styleTags = varchar("style_tags", 500).nullable()
     val brand = varchar("brand", 100).nullable()
     val colors = text("colors").nullable()
+    val occasion = varchar("occasion", 100).nullable()
 }
 
 class ClotheDao(id: EntityID<Int>) : IntEntity(id) {
@@ -49,6 +51,7 @@ class ClotheDao(id: EntityID<Int>) : IntEntity(id) {
     var styleTags by ClotheTable.styleTags
     var brand by ClotheTable.brand
     var colors by ClotheTable.colors
+    var occasion by ClotheTable.occasion
 }
 
 private val json = Json { ignoreUnknownKeys = true }
@@ -64,7 +67,8 @@ fun daoToModel(dao: ClotheDao) = Clothe(
     category = dao.category,
     styleTags = dao.styleTags,
     brand = dao.brand,
-    colors = dao.colors?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }
+    colors = dao.colors?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() },
+    occasion = dao.occasion
 )
 
 fun rowToClothe(row: ResultRow) = Clothe(
@@ -78,7 +82,8 @@ fun rowToClothe(row: ResultRow) = Clothe(
     category = row[ClotheTable.category],
     styleTags = row[ClotheTable.styleTags],
     brand = row[ClotheTable.brand],
-    colors = row[ClotheTable.colors]?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }
+    colors = row[ClotheTable.colors]?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() },
+    occasion = row[ClotheTable.occasion]
 )
 
 @Serializable
@@ -97,11 +102,12 @@ data class ClotheFilter(
     val brands: List<String>? = null,
     val color: String? = null,
     val colorTolerance: Double = 50.0,
-    val searchQuery: String? = null
+    val searchQuery: String? = null,
+    val occasion: String? = null
 ) {
     val isEmpty: Boolean get() = categories == null && materials == null &&
         fits == null && seasons == null && styles == null &&
-        brands == null && color == null && searchQuery == null
+        brands == null && color == null && searchQuery == null && occasion == null
 }
 
 @Serializable

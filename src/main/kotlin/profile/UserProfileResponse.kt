@@ -6,6 +6,9 @@ import kotlinx.serialization.Serializable
 data class UserProfileResponse(
     val name: String,
     val email: String,
-    val gender: String
+    val gender: String,
+    val clothes_count: Int,
+    val looks_count: Int,
+    val is_pro: Boolean
 )
 
