@@ -73,6 +73,7 @@ fun Application.configureDatabase() {
         exec("ALTER TABLE clothes ADD COLUMN IF NOT EXISTS colors TEXT")
         exec("ALTER TABLE clothes ADD COLUMN IF NOT EXISTS occasion VARCHAR(100)")
         exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_pro BOOLEAN NOT NULL DEFAULT FALSE")
+        exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS pro_until TIMESTAMP NULL")
     }
 
     log.info("✓ Database configured successfully")
