@@ -2,6 +2,7 @@ package com.example.routes
 
 import com.example.auth.EnvironmentConfig
 import com.example.database.data.model.ClotheTable
+import com.example.database.data.model.DailyQuotaTable
 import com.example.database.data.model.LookItemTable
 import com.example.database.data.model.LookTable
 import com.example.database.data.model.RevokedTokenTable
@@ -65,7 +66,8 @@ fun Application.configureDatabase() {
             UserLookTable,
             LookItemTable,
             SharedLookTable,
-            RevokedTokenTable
+            RevokedTokenTable,
+            DailyQuotaTable
         )
         // Add new columns to existing tables (safe, idempotent)
         exec("ALTER TABLE looks ADD COLUMN IF NOT EXISTS generated_by_ai BOOLEAN DEFAULT FALSE NOT NULL")
