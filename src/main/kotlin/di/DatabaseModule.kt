@@ -2,6 +2,7 @@ package com.example.di
 
 import com.example.usecases.ClotheUseCase
 import com.example.usecases.GenerateLookUseCase
+import com.example.usecases.QuotaUseCase
 import org.koin.dsl.module
 import com.example.database.data.repository.ClotheRepositoryImpl
 import com.example.database.data.repository.DailyQuotaRepositoryImpl
@@ -30,4 +31,5 @@ val databaseModule = module {
     single { ClotheUseCase(lookRepository = get()) }
     single { ImportSharedLookUseCase(sharedLookRepository = get(), clotheRepository = get(), lookRepository = get(), userClotheRepository = get()) }
     single { GenerateLookUseCase(generateLookService = get(), lookRepository = get()) }
+    single { QuotaUseCase(userRepository = get()) }
 }
