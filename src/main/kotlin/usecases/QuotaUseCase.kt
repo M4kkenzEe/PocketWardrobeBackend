@@ -8,10 +8,9 @@ import com.example.database.domain.repository.UserRepository
 import com.example.database.suspendTransaction
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.plus
-import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.dao.id.EntityID
@@ -27,9 +26,7 @@ class QuotaUseCase(
 
         val moscowTz = TimeZone.of("Europe/Moscow")
         val today = Clock.System.now().toLocalDateTime(moscowTz).date
-        val tomorrow = today.plus(1, DateTimeUnit.DAY)
-        val resetInstant = tomorrow.atTime(LocalTime(0, 0, 0)).toInstant(moscowTz)
-        val resetAt = resetInstant.toString()
+        val resetAt = today.plus(1, DateTimeUnit.DAY).atStartOfDayIn(moscowTz).toString()
 
         suspendTransaction {
             val row = DailyQuotaDao.find {
