@@ -8,6 +8,9 @@ import com.example.database.domain.repository.LookRepository
 import com.example.database.domain.repository.SharedLookRepository
 import com.example.database.domain.repository.UserLookRepository
 import com.example.usecases.GenerateLookUseCase
+import com.example.usecases.QuotaExceededException
+import com.example.usecases.QuotaUseCase
+import kotlinx.serialization.Serializable
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
@@ -25,11 +28,15 @@ import validation.FileUploadValidator
 import java.io.File
 import java.util.*
 
+@Serializable
+data class GenerateLookRequest(val occasion: String? = null)
+
 fun Application.looks() {
     val lookRepository: LookRepository by inject()
     val sharedLookRepository: SharedLookRepository by inject()
     val userLookRepository: UserLookRepository by inject()
     val generateLookUseCase: GenerateLookUseCase by inject()
+    val quotaUseCase: QuotaUseCase by inject()
     routing {
         staticFiles("/looks", File(EnvironmentConfig.looksDirectory))
         authenticate {
@@ -143,6 +150,38 @@ fun Application.looks() {
                             try {
                                 val lookIds = generateLookUseCase.generateAndSaveLooks(userId)
                                 call.respond(HttpStatusCode.OK, mapOf("look_ids" to lookIds))
+                            } catch (e: IllegalArgumentException) {
+                                call.respond(
+                                    HttpStatusCode.BadRequest,
+                                    mapOf("error" to "not_enough_clothes")
+                                )
+                            } catch (e: Exception) {
+                                call.respond(
+                                    HttpStatusCode.ServiceUnavailable,
+                                    mapOf("error" to "AI service unavailable")
+                                )
+                            }
+                        }
+                    }
+
+                    rateLimit(RateLimitName("generate")) {
+                        post("/generate") {
+                            val userId = call.principal<UserPrincipal>()?.userId
+                                ?: throw IllegalStateException("User not authenticated")
+                            try {
+                                val request = try {
+                                    call.receive<GenerateLookRequest>()
+                                } catch (_: ContentTransformationException) {
+                                    GenerateLookRequest()
+                                }
+                                quotaUseCase.checkAndConsume(userId)
+                                val lookIds = generateLookUseCase.generateAndSaveLooks(userId)
+                                call.respond(HttpStatusCode.OK, mapOf("look_ids" to lookIds))
+                            } catch (e: QuotaExceededException) {
+                                call.respond(
+                                    HttpStatusCode(402, "Payment Required"),
+                                    mapOf("error" to "DAILY_LIMIT_REACHED", "limit" to e.limit, "used" to e.used, "reset_at" to e.resetAt)
+                                )
                             } catch (e: IllegalArgumentException) {
                                 call.respond(
                                     HttpStatusCode.BadRequest,
