@@ -9,6 +9,7 @@ data class UserProfileResponse(
     val gender: String,
     val clothes_count: Int,
     val looks_count: Int,
-    val is_pro: Boolean
+    val is_pro: Boolean,
+    val pro_trial_ends_at: String?
 )
 

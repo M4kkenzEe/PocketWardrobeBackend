@@ -6,6 +6,8 @@ import com.example.database.data.model.UserTable
 import com.example.database.data.model.daoToModel
 import com.example.database.domain.repository.UserRepository
 import com.example.database.suspendTransaction
+import kotlinx.datetime.Clock
+import kotlin.time.Duration.Companion.days
 import org.jetbrains.exposed.v1.core.or
 import org.mindrot.jbcrypt.BCrypt
 
@@ -20,11 +22,14 @@ class UserRepositoryImpl : UserRepository {
             return@suspendTransaction null
         }
 
+        val trialEndsAt = Clock.System.now().plus(30.days)
         UserDao.new {
             username = user.username
             email = user.email
             passwordHash = BCrypt.hashpw(user.passwordHash, BCrypt.gensalt())
             gender = user.gender
+            isPro = true
+            proUntil = trialEndsAt
         }.let { daoToModel(it) }
     }
 
