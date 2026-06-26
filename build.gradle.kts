@@ -54,6 +54,9 @@ dependencies {
     // Database Connection Pooling
     implementation(libs.hikari.cp)
 
+    // Email (SMTP)
+    implementation("com.sun.mail:jakarta.mail:2.0.1")
+
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
 }

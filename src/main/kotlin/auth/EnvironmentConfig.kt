@@ -144,4 +144,24 @@ object EnvironmentConfig {
     val admitadWbId: String? = getEnv("ADMITAD_WB_ID")?.takeIf { it.isNotBlank() }
     val admitadOzonId: String? = getEnv("ADMITAD_OZON_ID")?.takeIf { it.isNotBlank() }
     val admitadLamodaId: String? = getEnv("ADMITAD_LAMODA_ID")?.takeIf { it.isNotBlank() }
+
+    // SMTP / Email Configuration
+    val smtpHost: String = getEnv("SMTP_HOST")?.also {
+        require(it.isNotBlank()) { "SMTP_HOST cannot be blank" }
+    } ?: throw IllegalStateException("SMTP_HOST is required in environment")
+
+    val smtpPort: Int = getEnv("SMTP_PORT")?.toIntOrNull()?.also {
+        require(it > 0) { "SMTP_PORT must be positive" }
+    } ?: throw IllegalStateException("SMTP_PORT is required in environment")
+
+    val smtpUser: String = getEnv("SMTP_USER")?.also {
+        require(it.isNotBlank()) { "SMTP_USER cannot be blank" }
+    } ?: throw IllegalStateException("SMTP_USER is required in environment")
+
+    val smtpPassword: String = getEnv("SMTP_PASSWORD")
+        ?: throw IllegalStateException("SMTP_PASSWORD is required in environment")
+
+    val smtpFrom: String = getEnv("SMTP_FROM")?.also {
+        require(it.isNotBlank()) { "SMTP_FROM cannot be blank" }
+    } ?: throw IllegalStateException("SMTP_FROM is required in environment")
 }
