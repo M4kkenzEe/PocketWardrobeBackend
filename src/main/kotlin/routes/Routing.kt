@@ -5,6 +5,8 @@ import com.example.auth.model.LoginRequest
 import com.example.auth.model.LoginResponse
 import com.example.auth.model.RefreshRequest
 import com.example.auth.model.RegisterRequest
+import com.example.auth.model.ResetPasswordRequest
+import org.mindrot.jbcrypt.BCrypt
 import com.example.auth.service.JWTConfig
 import com.example.database.data.model.User
 import com.example.database.domain.repository.PasswordResetRepository
@@ -159,6 +161,48 @@ fun Application.configureRouting() {
                             message = "Invalid or expired refresh token"
                         ))
                     }
+                }
+
+                post("/auth/reset-password") {
+                    val request = call.receive<ResetPasswordRequest>()
+
+                    AuthValidator.validatePasswordResetRequest(
+                        email = request.email,
+                        code = request.code,
+                        newPassword = request.newPassword
+                    )
+
+                    val user = userService.findUserByEmail(request.email)
+                    if (user == null) {
+                        call.respond(HttpStatusCode.BadRequest, ErrorResponse(
+                            error = "BadRequest",
+                            message = "Invalid code or email"
+                        ))
+                        return@post
+                    }
+
+                    val resetCode = passwordResetRepository.findValidCode(user.userId, request.code)
+                    if (resetCode == null) {
+                        call.respond(HttpStatusCode.BadRequest, ErrorResponse(
+                            error = "BadRequest",
+                            message = "Invalid or expired code"
+                        ))
+                        return@post
+                    }
+
+                    val newHash = BCrypt.hashpw(request.newPassword, BCrypt.gensalt())
+                    userService.updatePassword(user.userId, newHash)
+                    passwordResetRepository.markUsed(resetCode.id)
+                    passwordResetRepository.deleteUserCodes(user.userId)
+
+                    val updatedUser = user.copy(passwordHash = newHash)
+                    val tokens = JWTConfig.generateTokenPair(updatedUser)
+                    call.respond(HttpStatusCode.OK, LoginResponse(
+                        accessToken = tokens.accessToken,
+                        refreshToken = tokens.refreshToken,
+                        expiresAt = tokens.expiresAt,
+                        userId = updatedUser.userId
+                    ))
                 }
 
                 post("/auth/forgot-password") {

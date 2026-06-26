@@ -3,6 +3,7 @@ package com.example.di
 import com.example.auth.EnvironmentConfig
 import com.example.services.AffiliateService
 import com.example.services.ClotheAnalysisService
+import com.example.services.EmailService
 import com.example.services.GenerateLookService
 import com.example.services.RemoveBgService
 import io.ktor.client.*
@@ -54,4 +55,6 @@ fun remBgModule(environment: ApplicationEnvironment) = module {
             admitadLamodaId = EnvironmentConfig.admitadLamodaId
         )
     }
+
+    single { EmailService() }
 }

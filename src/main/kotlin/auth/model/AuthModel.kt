@@ -35,3 +35,10 @@ data class UserPrincipal(val userId: Int, val username: String)
 data class ForgotPasswordRequest(
     val email: String
 )
+
+@Serializable
+data class ResetPasswordRequest(
+    val email: String,
+    val code: String,
+    val newPassword: String
+)

@@ -62,9 +62,11 @@ class UserRepositoryImpl : UserRepository {
         user?.takeIf { verifyPassword(password, it.passwordHash) }?.let { daoToModel(it) }
     }
 
+    override suspend fun updatePassword(userId: Int, newPasswordHash: String): Unit = suspendTransaction {
+        UserDao.findById(userId)?.passwordHash = newPasswordHash
+    }
+
     private fun verifyPassword(password: String, passwordHash: String): Boolean {
         return BCrypt.checkpw(password, passwordHash)
     }
-
-
 }
