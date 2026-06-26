@@ -1,13 +1,16 @@
 package com.example.routes
 
+import com.example.auth.model.ForgotPasswordRequest
 import com.example.auth.model.LoginRequest
 import com.example.auth.model.LoginResponse
 import com.example.auth.model.RefreshRequest
 import com.example.auth.model.RegisterRequest
 import com.example.auth.service.JWTConfig
 import com.example.database.data.model.User
+import com.example.database.domain.repository.PasswordResetRepository
 import com.example.database.domain.repository.RevokedTokenRepository
 import com.example.database.domain.repository.UserRepository
+import com.example.services.EmailService
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -25,6 +28,8 @@ import java.util.UUID
 fun Application.configureRouting() {
     val userService: UserRepository by inject()
     val revokedTokenRepository: RevokedTokenRepository by inject()
+    val passwordResetRepository: PasswordResetRepository by inject()
+    val emailService: EmailService by inject()
 
     routing {
         // Root endpoint (no versioning)
@@ -152,6 +157,32 @@ fun Application.configureRouting() {
                         call.respond(HttpStatusCode.Unauthorized, ErrorResponse(
                             error = "Unauthorized",
                             message = "Invalid or expired refresh token"
+                        ))
+                    }
+                }
+
+                post("/auth/forgot-password") {
+                    val request = call.receive<ForgotPasswordRequest>()
+                    val genericMessage = mapOf("message" to "Если email зарегистрирован, письмо отправлено")
+
+                    val user = userService.findUserByEmail(request.email)
+                    if (user == null) {
+                        call.respond(HttpStatusCode.OK, genericMessage)
+                        return@post
+                    }
+
+                    val code = (100000..999999).random().toString()
+                    passwordResetRepository.deleteUserCodes(user.userId)
+                    passwordResetRepository.createCode(user.userId, code)
+
+                    try {
+                        emailService.sendPasswordResetCode(request.email, code)
+                        call.respond(HttpStatusCode.OK, genericMessage)
+                    } catch (e: Exception) {
+                        log.error("Failed to send password reset email to ${request.email}", e)
+                        call.respond(HttpStatusCode.InternalServerError, ErrorResponse(
+                            error = "EmailError",
+                            message = "Не удалось отправить письмо"
                         ))
                     }
                 }
