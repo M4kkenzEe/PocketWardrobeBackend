@@ -34,4 +34,14 @@ object AuthValidator {
         require(login.isNotBlank()) { "Username or email is required" }
         require(password.isNotBlank()) { "Password is required" }
     }
+
+    fun validatePasswordResetRequest(email: String, code: String, newPassword: String) {
+        require(email.isNotBlank()) { "Email is required" }
+        require(EMAIL_REGEX.matches(email)) { "Invalid email format" }
+        require(code.length == 6 && code.all { it.isDigit() }) { "Code must be 6 digits" }
+        require(newPassword.length >= 8) { "Password must be at least 8 characters" }
+        require(newPassword.length <= 128) { "Password must be at most 128 characters" }
+        require(newPassword.any { it.isUpperCase() }) { "Password must contain at least one uppercase letter" }
+        require(newPassword.any { it.isDigit() }) { "Password must contain at least one digit" }
+    }
 }

@@ -22,4 +22,16 @@ interface ClotheRepository {
         colors: String? = null,
         occasion: String? = null
     ): Clothe
+
+    suspend fun updateClothe(
+        clotheId: Int,
+        name: String? = null,
+        storeUrl: String? = null,
+        season: String? = null,
+        fit: String? = null,
+        material: String? = null,
+        brand: String? = null,
+        occasion: String? = null,
+        styleTags: String? = null
+    ): Clothe?
 }

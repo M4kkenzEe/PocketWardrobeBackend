@@ -8,4 +8,5 @@ interface UserRepository {
     suspend fun findUserByEmail(email: String): User?
     suspend fun findUserById(userId: Int): User?
     suspend fun authenticate(username: String, password: String): User?
+    suspend fun updatePassword(userId: Int, newPasswordHash: String)
 }
