@@ -33,6 +33,18 @@ import kotlin.math.sqrt
 @Serializable
 private data class FreemiumLimitError(val error: String, val limit: Int, val current: Int)
 
+@Serializable
+private data class UpdateClotheRequest(
+    val name: String? = null,
+    val storeUrl: String? = null,
+    val season: String? = null,
+    val fit: String? = null,
+    val material: String? = null,
+    val brand: String? = null,
+    val occasion: String? = null,
+    val styleTags: String? = null
+)
+
 private val uploadsDirPath: Path = Path.of(EnvironmentConfig.uploadsDirectory).toAbsolutePath()
 
 
@@ -237,6 +249,33 @@ fun Application.clothes() {
                                 ?: throw NoSuchElementException("Failed to retrieve created clothe")
 
                             call.respond(HttpStatusCode.Created, result)
+                        }
+
+                        patch("/{id}") {
+                            val userId = getUserIdOrThrow(call)
+                            val clotheId = call.parameters["id"]?.toIntOrNull()
+                                ?: return@patch call.respond(HttpStatusCode.BadRequest, "Invalid clothe id")
+
+                            clotheRepository.getClotheById(clotheId)
+                                ?: return@patch call.respond(HttpStatusCode.NotFound, "Clothe not found")
+
+                            clotheRepository.getClotheByIdForUser(clotheId, userId)
+                                ?: return@patch call.respond(HttpStatusCode.Forbidden, "Access denied")
+
+                            val req = call.receive<UpdateClotheRequest>()
+                            val updated = clotheRepository.updateClothe(
+                                clotheId = clotheId,
+                                name = req.name,
+                                storeUrl = req.storeUrl,
+                                season = req.season,
+                                fit = req.fit,
+                                material = req.material,
+                                brand = req.brand,
+                                occasion = req.occasion,
+                                styleTags = req.styleTags
+                            ) ?: return@patch call.respond(HttpStatusCode.NotFound, "Clothe not found")
+
+                            call.respond(HttpStatusCode.OK, updated)
                         }
 
                         // Add clothe from URL

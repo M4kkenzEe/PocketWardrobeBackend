@@ -16,13 +16,14 @@ import java.util.Properties
 class EmailService {
     private val log = LoggerFactory.getLogger(EmailService::class.java)
 
-    private val session: Session by lazy {
+    private val session: Session? by lazy {
+        if (!EnvironmentConfig.isEmailConfigured) return@lazy null
         val props = Properties().apply {
             put("mail.smtp.auth", "true")
             put("mail.smtp.starttls.enable", "true")
-            put("mail.smtp.host", EnvironmentConfig.smtpHost)
-            put("mail.smtp.port", EnvironmentConfig.smtpPort.toString())
-            put("mail.smtp.ssl.trust", EnvironmentConfig.smtpHost)
+            put("mail.smtp.host", EnvironmentConfig.smtpHost!!)
+            put("mail.smtp.port", EnvironmentConfig.smtpPort!!.toString())
+            put("mail.smtp.ssl.trust", EnvironmentConfig.smtpHost!!)
         }
         Session.getInstance(props, object : Authenticator() {
             override fun getPasswordAuthentication() =
@@ -31,8 +32,12 @@ class EmailService {
     }
 
     suspend fun sendPasswordResetCode(toEmail: String, code: String) = withContext(Dispatchers.IO) {
+        val s = session ?: run {
+            log.warn("SMTP not configured — skipping email to $toEmail (code: $code)")
+            return@withContext
+        }
         log.info("Sending password reset code to $toEmail")
-        val message = MimeMessage(session).apply {
+        val message = MimeMessage(s).apply {
             setFrom(InternetAddress(EnvironmentConfig.smtpFrom))
             setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail))
             subject = "Код восстановления PocketWardrobe"

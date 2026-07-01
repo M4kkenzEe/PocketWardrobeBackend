@@ -189,4 +189,27 @@ class ClotheRepositoryImpl : ClotheRepository {
             daoToModel(dao)
         }
     }
+
+    override suspend fun updateClothe(
+        clotheId: Int,
+        name: String?,
+        storeUrl: String?,
+        season: String?,
+        fit: String?,
+        material: String?,
+        brand: String?,
+        occasion: String?,
+        styleTags: String?
+    ): Clothe? = suspendTransaction {
+        val dao = ClotheDao.findById(clotheId) ?: return@suspendTransaction null
+        name?.let { dao.name = it }
+        storeUrl?.let { dao.storeUrl = it }
+        season?.let { dao.season = it }
+        fit?.let { dao.fit = it }
+        material?.let { dao.material = it }
+        brand?.let { dao.brand = it }
+        occasion?.let { dao.occasion = it }
+        styleTags?.let { dao.styleTags = it }
+        daoToModel(dao)
+    }
 }
