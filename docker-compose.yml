@@ -75,7 +75,8 @@ services:
     networks:
       - pocketwardrobe_network
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/docs" ]
+      # These python images have no curl — use python3 + urllib instead.
+      test: [ "CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/openapi.json',timeout=5).status==200 else 1)" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -92,6 +93,12 @@ services:
       - pocketwardrobe_network
     restart: unless-stopped
     command: uvicorn main:app --host 0.0.0.0 --port 8088 --reload
+    healthcheck:
+      test: [ "CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8088/openapi.json',timeout=5).status==200 else 1)" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   # ==================================================================================
   # Recommendation AI Service
@@ -119,7 +126,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8001/health" ]
+      test: [ "CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/health',timeout=5).status==200 else 1)" ]
       interval: 30s
       timeout: 10s
       retries: 3
