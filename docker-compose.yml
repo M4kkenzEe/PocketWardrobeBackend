@@ -32,7 +32,7 @@ services:
     #    build:
     #      context: .
     #      dockerfile: Dockerfile
-    image: yura91191/pocketwardrobe-backend:amd64
+    image: yura91191/pocketwardrobe-backend:latest
     container_name: pocketwardrobe_backend
     env_file: .env
     environment:
