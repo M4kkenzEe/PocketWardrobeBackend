@@ -4,6 +4,7 @@ import com.example.auth.EnvironmentConfig
 import com.example.auth.model.UserPrincipal
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
+import io.ktor.server.plugins.origin
 import io.ktor.server.plugins.ratelimit.*
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -23,8 +24,8 @@ fun Application.configureRateLimiting() {
         register(RateLimitName("auth")) {
             rateLimiter(limit = EnvironmentConfig.rateLimitAuth, refillPeriod = 1.minutes)
             requestKey { call ->
-                // Use client IP as the key
-                call.request.local.remoteHost
+                // Use client IP as the key (origin honors X-Forwarded-For behind nginx)
+                call.request.origin.remoteHost
             }
         }
 
@@ -35,7 +36,7 @@ fun Application.configureRateLimiting() {
             requestKey { call ->
                 // Use userId from JWT if available, otherwise IP
                 val principal = call.principal<UserPrincipal>()
-                principal?.userId?.toString() ?: call.request.local.remoteHost
+                principal?.userId?.toString() ?: call.request.origin.remoteHost
             }
         }
 
@@ -44,7 +45,7 @@ fun Application.configureRateLimiting() {
             rateLimiter(limit = EnvironmentConfig.rateLimitGenerate, refillPeriod = 1.hours)
             requestKey { call ->
                 val principal = call.principal<UserPrincipal>()
-                principal?.userId?.toString() ?: call.request.local.remoteHost
+                principal?.userId?.toString() ?: call.request.origin.remoteHost
             }
         }
 
@@ -53,7 +54,7 @@ fun Application.configureRateLimiting() {
             rateLimiter(limit = EnvironmentConfig.rateLimitAffiliate, refillPeriod = 1.minutes)
             requestKey { call ->
                 val principal = call.principal<UserPrincipal>()
-                principal?.userId?.toString() ?: call.request.local.remoteHost
+                principal?.userId?.toString() ?: call.request.origin.remoteHost
             }
         }
 
@@ -64,7 +65,7 @@ fun Application.configureRateLimiting() {
             requestKey { call ->
                 // Use userId from JWT if available, otherwise IP
                 val principal = call.principal<UserPrincipal>()
-                principal?.userId?.toString() ?: call.request.local.remoteHost
+                principal?.userId?.toString() ?: call.request.origin.remoteHost
             }
         }
     }

@@ -46,7 +46,9 @@ services:
       ANALYSIS_SERVICE_URL: http://ai-analyzer:8088/
       RECOMMENDATION_SERVICE_URL: http://recommendation:8001/
     ports:
-      - "8080:8080"
+      # Bind to loopback only — nginx reaches the backend via the internal Docker network (backend:8080).
+      # Publishing publicly would let attackers bypass nginx and spoof X-Forwarded-For.
+      - "127.0.0.1:8080:8080"
     volumes:
       # Bind mounts for persistent user data
       - ./uploads:/app/uploads

@@ -8,6 +8,7 @@ import com.example.routes.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
+import io.ktor.server.plugins.forwardedheaders.*
 import org.koin.ktor.plugin.Koin
 import org.koin.logger.SLF4JLogger
 import plugins.*
@@ -23,6 +24,7 @@ fun Application.module() {
     ConfigValidator.validateConfiguration(log)
 
     // 2. Install security and monitoring plugins
+    install(XForwardedHeaders)     // trust nginx X-Forwarded-For so rate limiting sees the real client IP
     configureErrorHandling()      // Centralized error handling (prevents error leaks)
     configureCors()                // CORS configuration
     configureRateLimiting()        // Rate limiting (brute force protection)
