@@ -68,10 +68,9 @@ object EnvironmentConfig {
     fun getServerBaseUrl(): String = "$serverScheme://$serverHost"
 
     // App Configuration (for deep links)
-    val appScheme: String = getEnv("APP_SCHEME") ?: "pocketwardrobe"
-    val appHost: String = getEnv("APP_HOST") ?: "share"
+    private val deepLinkBase: String = getEnv("APP_DEEP_LINK_BASE") ?: "https://clothis.tech/share"
 
-    fun getAppDeepLinkBase(): String = "http://$appScheme/$appHost"
+    fun getAppDeepLinkBase(): String = deepLinkBase
 
     // External Services Configuration
     val removeBgServiceUrl: String = getEnv("REMOVE_BG_SERVICE_URL")?.also {

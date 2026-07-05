@@ -11,6 +11,8 @@ import com.example.auth.EnvironmentConfig
 import java.io.File
 import java.net.URI
 import java.util.*
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 class ImportSharedLookUseCase(
     private val sharedLookRepository: SharedLookRepository,
@@ -45,10 +47,20 @@ class ImportSharedLookUseCase(
                 val newClothe = Clothe(
                     name = originalClothe.name,
                     imageUrl = newImageUrl,
-                    storeUrl = originalClothe.storeUrl
+                    storeUrl = originalClothe.storeUrl,
+                    brand = originalClothe.brand
                 )
 
-                val savedClothe = clotheRepository.addClothe(newClothe)
+                val savedClothe = clotheRepository.addClothe(
+                    clothe = newClothe,
+                    season = originalClothe.season,
+                    fit = originalClothe.fit,
+                    material = originalClothe.material,
+                    category = originalClothe.category,
+                    styleTags = originalClothe.styleTags,
+                    colors = originalClothe.colors?.let { Json.encodeToString(it) },
+                    occasion = originalClothe.occasion
+                )
                 // Add clothe to user's wardrobe
                 userClotheRepository.addClotheToUser(targetUserId, savedClothe.id!!)
                 clotheIdMapping[originalClothe.id!!] = savedClothe.id
@@ -122,10 +134,20 @@ class ImportSharedLookUseCase(
                 val newClothe = Clothe(
                     name = originalClothe.name,
                     imageUrl = newImageUrl,
-                    storeUrl = originalClothe.storeUrl
+                    storeUrl = originalClothe.storeUrl,
+                    brand = originalClothe.brand
                 )
 
-                val savedClothe = clotheRepository.addClothe(newClothe)
+                val savedClothe = clotheRepository.addClothe(
+                    clothe = newClothe,
+                    season = originalClothe.season,
+                    fit = originalClothe.fit,
+                    material = originalClothe.material,
+                    category = originalClothe.category,
+                    styleTags = originalClothe.styleTags,
+                    colors = originalClothe.colors?.let { Json.encodeToString(it) },
+                    occasion = originalClothe.occasion
+                )
                 // Add clothe to user's wardrobe
                 userClotheRepository.addClotheToUser(targetUserId, savedClothe.id!!)
                 newClotheIds.add(savedClothe.id)
