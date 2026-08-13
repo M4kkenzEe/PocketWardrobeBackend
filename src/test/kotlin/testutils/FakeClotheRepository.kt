@@ -231,19 +231,45 @@ class FakeClotheRepository : ClotheRepository {
     override suspend fun getClotheByIdForUser(clotheId: Int, userId: Int): Clothe? =
         if (clotheId in userClothes[userId].orEmpty()) store[clotheId] else null
 
+    override suspend fun findUserClotheByRoot(userId: Int, rootId: Int): Clothe? =
+        userClothes[userId].orEmpty()
+            .mapNotNull { store[it] }
+            .sortedBy { it.id }
+            .firstOrNull { it.rootClotheId == rootId || it.id == rootId }
+
     override suspend fun addClothe(
         clothe: Clothe, season: String?, fit: String?,
         material: String?, category: String?, styleTags: String?, colors: String?,
-        occasion: String?
+        occasion: String?, rootClotheId: Int?
     ): Clothe {
         val id = (store.keys.maxOrNull() ?: 0) + 1
         val saved = clothe.copy(
             id = id, season = season, fit = fit,
             material = material, category = category, styleTags = styleTags,
-            occasion = occasion
+            occasion = occasion, rootClotheId = rootClotheId
         )
         store[id] = saved
         return saved
+    }
+
+    override suspend fun updateClothe(
+        clotheId: Int, name: String?, storeUrl: String?, season: String?,
+        fit: String?, material: String?, brand: String?, occasion: String?,
+        styleTags: String?
+    ): Clothe? {
+        val existing = store[clotheId] ?: return null
+        val updated = existing.copy(
+            name = name ?: existing.name,
+            storeUrl = storeUrl ?: existing.storeUrl,
+            season = season ?: existing.season,
+            fit = fit ?: existing.fit,
+            material = material ?: existing.material,
+            brand = brand ?: existing.brand,
+            occasion = occasion ?: existing.occasion,
+            styleTags = styleTags ?: existing.styleTags
+        )
+        store[clotheId] = updated
+        return updated
     }
 }
 

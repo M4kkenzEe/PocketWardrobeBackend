@@ -21,7 +21,8 @@ data class Clothe(
     val styleTags: String? = null,
     val brand: String? = null,
     val colors: List<String>? = null,
-    val occasion: String? = null
+    val occasion: String? = null,
+    val rootClotheId: Int? = null
 )
 
 object ClotheTable : IntIdTable("clothes") {
@@ -36,6 +37,9 @@ object ClotheTable : IntIdTable("clothes") {
     val brand = varchar("brand", 100).nullable()
     val colors = text("colors").nullable()
     val occasion = varchar("occasion", 100).nullable()
+    // Points at the clothe this row was cloned from. No FK: a future storage GC must be free
+    // to delete the ancestor. Null for rows created by upload.
+    val rootClotheId = integer("root_clothe_id").nullable()
 }
 
 class ClotheDao(id: EntityID<Int>) : IntEntity(id) {
@@ -52,6 +56,7 @@ class ClotheDao(id: EntityID<Int>) : IntEntity(id) {
     var brand by ClotheTable.brand
     var colors by ClotheTable.colors
     var occasion by ClotheTable.occasion
+    var rootClotheId by ClotheTable.rootClotheId
 }
 
 private val json = Json { ignoreUnknownKeys = true }
@@ -68,7 +73,8 @@ fun daoToModel(dao: ClotheDao) = Clothe(
     styleTags = dao.styleTags,
     brand = dao.brand,
     colors = dao.colors?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() },
-    occasion = dao.occasion
+    occasion = dao.occasion,
+    rootClotheId = dao.rootClotheId
 )
 
 fun rowToClothe(row: ResultRow) = Clothe(
@@ -83,7 +89,8 @@ fun rowToClothe(row: ResultRow) = Clothe(
     styleTags = row[ClotheTable.styleTags],
     brand = row[ClotheTable.brand],
     colors = row[ClotheTable.colors]?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() },
-    occasion = row[ClotheTable.occasion]
+    occasion = row[ClotheTable.occasion],
+    rootClotheId = row[ClotheTable.rootClotheId]
 )
 
 @Serializable

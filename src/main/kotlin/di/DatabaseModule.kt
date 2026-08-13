@@ -32,7 +32,7 @@ val databaseModule = module {
     factory<DailyQuotaRepository> { DailyQuotaRepositoryImpl() }
     factory<PasswordResetRepository> { PasswordResetRepositoryImpl() }
     single { ClotheUseCase(lookRepository = get()) }
-    single { ImportSharedLookUseCase(sharedLookRepository = get(), clotheRepository = get(), lookRepository = get(), userClotheRepository = get()) }
+    single { ImportSharedLookUseCase(sharedLookRepository = get(), clotheRepository = get(), lookRepository = get(), userClotheRepository = get(), userRepository = get()) }
     single { GenerateLookUseCase(generateLookService = get(), lookRepository = get()) }
     single { QuotaUseCase(userRepository = get()) }
 }

@@ -7,6 +7,7 @@ import com.example.database.domain.repository.ClotheRepository
 import com.example.database.domain.repository.LookRepository
 import com.example.database.domain.repository.SharedLookRepository
 import com.example.database.domain.repository.UserClotheRepository
+import com.example.database.domain.repository.UserRepository
 import com.example.auth.EnvironmentConfig
 import java.io.File
 import java.net.URI
@@ -14,12 +15,33 @@ import java.util.*
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
+private const val FREEMIUM_CLOTHES_LIMIT = 100
+
+class FreemiumLimitException(val current: Int, val limit: Int) :
+    RuntimeException("Wardrobe limit reached: $current/$limit")
+
 class ImportSharedLookUseCase(
     private val sharedLookRepository: SharedLookRepository,
     private val clotheRepository: ClotheRepository,
     private val lookRepository: LookRepository,
-    private val userClotheRepository: UserClotheRepository
+    private val userClotheRepository: UserClotheRepository,
+    private val userRepository: UserRepository
 ) {
+    /**
+     * Rejects the whole import up front when it would not fit into the free plan.
+     * Checking per item instead would leave a half-imported look behind.
+     */
+    private suspend fun requireCapacity(targetUserId: Int, incoming: Int) {
+        val user = userRepository.findUserById(targetUserId)
+            ?: throw IllegalStateException("User not found")
+        if (user.isPro) return
+
+        val current = userClotheRepository.countByUserId(targetUserId)
+        if (current + incoming > FREEMIUM_CLOTHES_LIMIT) {
+            throw FreemiumLimitException(current = current, limit = FREEMIUM_CLOTHES_LIMIT)
+        }
+    }
+
     /**
      * Imports a full look (all clothes + look itself) to the target user's wardrobe
      * @param shareToken The share token
@@ -33,6 +55,8 @@ class ImportSharedLookUseCase(
                 ?: return Result.failure(Exception("Share link not found or expired"))
 
             val originalLook = sharedLookDetails.look
+
+            requireCapacity(targetUserId, originalLook.lookItems.size)
 
             // Import all clothes from the look
             val clotheIdMapping = mutableMapOf<Int, Int>() // originalId -> newId
@@ -59,7 +83,8 @@ class ImportSharedLookUseCase(
                     category = originalClothe.category,
                     styleTags = originalClothe.styleTags,
                     colors = originalClothe.colors?.let { Json.encodeToString(it) },
-                    occasion = originalClothe.occasion
+                    occasion = originalClothe.occasion,
+                    rootClotheId = originalClothe.rootClotheId ?: originalClothe.id
                 )
                 // Add clothe to user's wardrobe
                 userClotheRepository.addClotheToUser(targetUserId, savedClothe.id!!)
@@ -126,6 +151,8 @@ class ImportSharedLookUseCase(
                 .map { it.clothe }
                 .filter { clotheIds.contains(it.id) }
 
+            requireCapacity(targetUserId, selectedClothes.size)
+
             for (originalClothe in selectedClothes) {
                 // Copy clothe image
                 val newImageUrl = copyImageFile(originalClothe.imageUrl, "uploads")
@@ -146,7 +173,8 @@ class ImportSharedLookUseCase(
                     category = originalClothe.category,
                     styleTags = originalClothe.styleTags,
                     colors = originalClothe.colors?.let { Json.encodeToString(it) },
-                    occasion = originalClothe.occasion
+                    occasion = originalClothe.occasion,
+                    rootClotheId = originalClothe.rootClotheId ?: originalClothe.id
                 )
                 // Add clothe to user's wardrobe
                 userClotheRepository.addClotheToUser(targetUserId, savedClothe.id!!)

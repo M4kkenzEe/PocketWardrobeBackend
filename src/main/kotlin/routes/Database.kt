@@ -76,6 +76,8 @@ fun Application.configureDatabase() {
         exec("ALTER TABLE clothes ADD COLUMN IF NOT EXISTS brand VARCHAR(100)")
         exec("ALTER TABLE clothes ADD COLUMN IF NOT EXISTS colors TEXT")
         exec("ALTER TABLE clothes ADD COLUMN IF NOT EXISTS occasion VARCHAR(100)")
+        exec("ALTER TABLE clothes ADD COLUMN IF NOT EXISTS root_clothe_id INT NULL")
+        exec("CREATE INDEX IF NOT EXISTS idx_clothes_root_clothe_id ON clothes(root_clothe_id)")
         exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_pro BOOLEAN NOT NULL DEFAULT FALSE")
         exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS pro_until TIMESTAMP NULL")
     }

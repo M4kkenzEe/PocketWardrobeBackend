@@ -12,6 +12,13 @@ interface ClotheRepository {
     suspend fun getClotheByName(name: String, userId: Int): Clothe?
     suspend fun getClotheById(clotheId: Int): Clothe?
     suspend fun getClotheByIdForUser(clotheId: Int, userId: Int): Clothe?
+
+    /**
+     * Finds the user's active clothe that descends from [rootId], or [rootId] itself.
+     * Used to keep saving the same shared item idempotent.
+     */
+    suspend fun findUserClotheByRoot(userId: Int, rootId: Int): Clothe?
+
     suspend fun addClothe(
         clothe: Clothe,
         season: String? = null,
@@ -20,7 +27,8 @@ interface ClotheRepository {
         category: String? = null,
         styleTags: String? = null,
         colors: String? = null,
-        occasion: String? = null
+        occasion: String? = null,
+        rootClotheId: Int? = null
     ): Clothe
 
     suspend fun updateClothe(

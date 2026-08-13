@@ -1,5 +1,6 @@
 package plugins
 
+import com.example.usecases.FreemiumLimitException
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.statuspages.*
@@ -25,6 +26,14 @@ fun Application.configureErrorHandling() {
                     error = "Internal server error",
                     message = "An unexpected error occurred. Please try again later."
                 )
+            )
+        }
+
+        // Free plan wardrobe cap. Mirrors the body shape the clothes routes already return.
+        exception<FreemiumLimitException> { call, cause ->
+            call.respond(
+                HttpStatusCode.PaymentRequired,
+                FreemiumLimitErrorResponse(error = "FREEMIUM_LIMIT", limit = cause.limit, current = cause.current)
             )
         }
 
@@ -119,4 +128,11 @@ fun Application.configureErrorHandling() {
 data class ErrorResponse(
     val error: String,
     val message: String
+)
+
+@Serializable
+data class FreemiumLimitErrorResponse(
+    val error: String,
+    val limit: Int,
+    val current: Int
 )

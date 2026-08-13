@@ -163,6 +163,20 @@ class ClotheRepositoryImpl : ClotheRepository {
         }
     }
 
+    override suspend fun findUserClotheByRoot(userId: Int, rootId: Int): Clothe? = suspendTransaction {
+        (UserClotheTable innerJoin ClotheTable)
+            .selectAll()
+            .where {
+                (UserClotheTable.userId eq userId) and
+                    (UserClotheTable.isDeleted eq false) and
+                    ((ClotheTable.rootClotheId eq rootId) or (ClotheTable.id eq rootId))
+            }
+            .orderBy(ClotheTable.id to SortOrder.ASC)
+            .limit(1)
+            .firstOrNull()
+            ?.let { rowToClothe(it) }
+    }
+
     override suspend fun addClothe(
         clothe: Clothe,
         season: String?,
@@ -171,7 +185,8 @@ class ClotheRepositoryImpl : ClotheRepository {
         category: String?,
         styleTags: String?,
         colors: String?,
-        occasion: String?
+        occasion: String?,
+        rootClotheId: Int?
     ): Clothe = suspendTransaction {
         ClotheDao.new {
             name = clothe.name
@@ -185,6 +200,7 @@ class ClotheRepositoryImpl : ClotheRepository {
             this.brand = clothe.brand
             this.colors = colors
             this.occasion = occasion
+            this.rootClotheId = rootClotheId
         }.let { dao ->
             daoToModel(dao)
         }

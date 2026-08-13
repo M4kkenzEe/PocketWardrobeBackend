@@ -151,6 +151,60 @@ fun Application.clothes() {
                             call.respond(HttpStatusCode.OK, result)
                         }
 
+                        // Save a foreign clothe into the current user's wardrobe
+                        // Saves someone else's clothe into the caller's wardrobe as an independent
+                        // copy. Without the copy both wardrobes point at one `clothes` row and a
+                        // PATCH by either user silently rewrites the item for the other one.
+                        post("/{id}/save") {
+                            val userId = getUserIdOrThrow(call)
+                            val clotheId = call.parameters["id"]?.toIntOrNull()
+                                ?: return@post call.respond(HttpStatusCode.BadRequest, "Invalid clothe id")
+
+                            val original = clotheRepository.getClotheById(clotheId)
+                                ?: return@post call.respond(HttpStatusCode.NotFound, "Clothe not found")
+
+                            val user = userRepository.findUserById(userId)
+                                ?: throw IllegalStateException("User not found")
+
+                            val root = original.rootClotheId ?: original.id!!
+
+                            val alreadySaved = clotheRepository.findUserClotheByRoot(userId, root)
+                            if (alreadySaved != null) {
+                                return@post call.respond(HttpStatusCode.OK, alreadySaved)
+                            }
+
+                            // Checked before the clone: nothing in this codebase deletes `clothes`
+                            // rows, so a clone rejected afterwards would be orphaned permanently.
+                            val count = userClotheRepository.countByUserId(userId)
+                            if (!user.isPro && count >= 100) {
+                                return@post call.respond(
+                                    HttpStatusCode.PaymentRequired,
+                                    FreemiumLimitError(error = "FREEMIUM_LIMIT", limit = 100, current = count)
+                                )
+                            }
+
+                            // image_url is shared with the original on purpose - the file is immutable.
+                            val cloned = clotheRepository.addClothe(
+                                clothe = original,
+                                season = original.season,
+                                fit = original.fit,
+                                material = original.material,
+                                category = original.category,
+                                styleTags = original.styleTags,
+                                colors = original.colors?.let { Json.encodeToString(it) },
+                                occasion = original.occasion,
+                                rootClotheId = root
+                            )
+
+                            when (val addResult = userClotheRepository.addClotheToUserAtomic(userId, cloned.id!!, user.isPro)) {
+                                is AddClotheResult.FreemiumLimitReached -> call.respond(
+                                    HttpStatusCode.PaymentRequired,
+                                    FreemiumLimitError(error = "FREEMIUM_LIMIT", limit = addResult.limit, current = addResult.current)
+                                )
+                                is AddClotheResult.Success -> call.respond(HttpStatusCode.OK, cloned)
+                            }
+                        }
+
                         // Delete clothe from user's wardrobe
                         delete("/{id}") {
                             val userId = getUserIdOrThrow(call)
