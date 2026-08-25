@@ -26,10 +26,6 @@ object EnvironmentConfig {
         require(it.isNotBlank()) { "JWT_AUDIENCE cannot be blank" }
     } ?: throw IllegalStateException("JWT_AUDIENCE is required in environment")
 
-    val jwtExpiresIn: Long = getEnv("JWT_EXPIRES_IN")?.toLongOrNull()?.also {
-        require(it > 0) { "JWT_EXPIRES_IN must be positive" }
-    } ?: throw IllegalStateException("JWT_EXPIRES_IN is required in environment")
-
     val jwtAccessExpiresIn: Long = getEnv("JWT_ACCESS_EXPIRES_IN")?.toLongOrNull()?.also {
         require(it > 0) { "JWT_ACCESS_EXPIRES_IN must be positive" }
     } ?: 900_000L // 15 minutes

@@ -16,7 +16,6 @@ object ConfigValidator {
             EnvironmentConfig.jwtSecret
             EnvironmentConfig.jwtIssuer
             EnvironmentConfig.jwtAudience
-            EnvironmentConfig.jwtExpiresIn
             log.info("✓ JWT configuration is valid")
 
             log.info("Checking database configuration...")
@@ -58,7 +57,6 @@ object ConfigValidator {
             log.error("  - JWT_SECRET (minimum 32 characters)")
             log.error("  - JWT_ISSUER")
             log.error("  - JWT_AUDIENCE")
-            log.error("  - JWT_EXPIRES_IN")
             log.error("  - DB_URL")
             log.error("  - DB_USER")
             log.error("  - DB_PASSWORD")
