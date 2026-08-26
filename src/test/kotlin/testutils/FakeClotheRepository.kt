@@ -285,10 +285,10 @@ class FakeUserClotheRepository(private val clotheCount: Int = 0, private val isP
         else AddClotheResult.Success(clotheId)
 }
 
-class FakeUserRepository(private val isPro: Boolean = false) : UserRepository {
+class FakeUserRepository(private val isPro: Boolean = false, private val emailUser: User? = null) : UserRepository {
     override suspend fun register(user: User): User? = null
     override suspend fun findUserByUsername(userName: String): User? = null
-    override suspend fun findUserByEmail(email: String): User? = null
+    override suspend fun findUserByEmail(email: String): User? = emailUser
     override suspend fun findUserById(userId: Int): User =
         User(userId = userId, username = "testuser", email = "test@test.com", passwordHash = "", gender = null, isPro = isPro)
     override suspend fun authenticate(username: String, password: String): User? = null

@@ -209,6 +209,8 @@ fun Application.configureRouting() {
                     val request = call.receive<ForgotPasswordRequest>()
                     val genericMessage = mapOf("message" to "Если email зарегистрирован, письмо отправлено")
 
+                    passwordResetRepository.deleteExpiredCodes()
+
                     val user = userService.findUserByEmail(request.email)
                     if (user == null) {
                         call.respond(HttpStatusCode.OK, genericMessage)
