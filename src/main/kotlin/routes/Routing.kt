@@ -111,7 +111,13 @@ fun Application.configureRouting() {
 
                     if (decoded != null) {
                         val jti = decoded.id
-                        if (jti != null && revokedTokenRepository.isTokenRevoked(jti)) {
+                        if (jti == null) {
+                            return@post call.respond(HttpStatusCode.Unauthorized, ErrorResponse(
+                                error = "Unauthorized",
+                                message = "Invalid refresh token"
+                            ))
+                        }
+                        if (revokedTokenRepository.isTokenRevoked(jti)) {
                             return@post call.respond(HttpStatusCode.Unauthorized, ErrorResponse(
                                 error = "Unauthorized",
                                 message = "Token has been revoked"
@@ -123,6 +129,8 @@ fun Application.configureRouting() {
 
                         if (user != null) {
                             val tokens = JWTConfig.generateTokenPair(user)
+                            val oldExpiresAt = decoded.expiresAt?.time ?: 0L
+                            revokedTokenRepository.revokeToken(jti, userId, oldExpiresAt)
                             call.respond(LoginResponse(
                                 accessToken = tokens.accessToken,
                                 refreshToken = tokens.refreshToken,

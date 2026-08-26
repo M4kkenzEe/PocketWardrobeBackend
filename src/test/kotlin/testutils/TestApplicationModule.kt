@@ -119,7 +119,8 @@ fun Application.testClothesModule(
  */
 fun Application.testAuthModule(
     passwordResetRepo: PasswordResetRepository,
-    userRepo: UserRepository = FakeUserRepository()
+    userRepo: UserRepository = FakeUserRepository(),
+    revokedTokenRepo: RevokedTokenRepository = FakeRevokedTokenRepository()
 ) {
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true })
@@ -146,7 +147,7 @@ fun Application.testAuthModule(
     install(Koin) {
         modules(module {
             single<UserRepository> { userRepo }
-            single<RevokedTokenRepository> { FakeRevokedTokenRepository() }
+            single<RevokedTokenRepository> { revokedTokenRepo }
             single<PasswordResetRepository> { passwordResetRepo }
             single<EmailService> { EmailService() }
         })
