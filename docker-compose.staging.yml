@@ -1,0 +1,122 @@
+version: '3.8'
+# Staging stack — runs alongside production on the same server.
+# Backend listens on port 8082 (prod is 8080).
+# Uses a separate database (wardrobe_staging) and separate volumes.
+#
+# Deploy:
+#   scp docker-compose.staging.yml root@194.87.190.248:/opt/pocketwardrobe/
+#   ssh root@194.87.190.248 \
+#     "cd /opt/pocketwardrobe && \
+#      docker-compose -f docker-compose.staging.yml --env-file .env.staging pull && \
+#      docker-compose -f docker-compose.staging.yml --env-file .env.staging up -d"
+#
+# Smoke-test against staging:
+#   ./scripts/smoke-test.sh --url http://194.87.190.248:8082
+
+services:
+  postgres_staging:
+    image: postgres:16-alpine
+    container_name: wardrobe_staging_db
+    environment:
+      POSTGRES_DB: wardrobe_staging
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres1}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    networks:
+      - wardrobe_staging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d wardrobe_staging"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  backend_staging:
+    image: yura91191/pocketwardrobe-backend:latest
+    container_name: wardrobe_staging_backend
+    env_file: .env.staging
+    environment:
+      DB_URL: jdbc:postgresql://postgres_staging:5432
+      DB_NAME: wardrobe_staging
+      SERVER_HOST: 194.87.190.248
+      SERVER_SCHEME: http
+      SERVER_PORT: 8082
+      REMOVE_BG_SERVICE_URL: http://removebg_staging:8000/
+      ANALYSIS_SERVICE_URL: http://ai_analyzer_staging:8088/
+      RECOMMENDATION_SERVICE_URL: http://recommendation_staging:8001/
+    ports:
+      # Loopback-only. Access remotely via SSH tunnel:
+      # ssh -L 8082:127.0.0.1:8082 root@194.87.190.248
+      # Then: ./scripts/smoke-test.sh --url http://localhost:8082
+      - "127.0.0.1:8082:8080"
+    volumes:
+      - ./uploads_staging:/app/uploads
+      - ./looks_staging:/app/looks
+    networks:
+      - wardrobe_staging
+    depends_on:
+      postgres_staging:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  removebg_staging:
+    image: yura91191/removebg-service:amd64
+    container_name: wardrobe_staging_removebg
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    networks:
+      - wardrobe_staging
+
+  ai_analyzer_staging:
+    image: yura91191/fashion-analyzer:latest
+    container_name: wardrobe_staging_analyzer
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ANALYZER_MODEL_ID=patrickjohncyh/fashion-clip
+      - ANALYZER_PROMPTS=catalog
+    networks:
+      - wardrobe_staging
+    restart: unless-stopped
+    command: uvicorn main:app --host 0.0.0.0 --port 8088
+
+  recommendation_staging:
+    image: yura91191/recommendation-service:amd64
+    container_name: wardrobe_staging_recommendation
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DB_HOST=postgres_staging
+      - DB_PORT=5432
+      - DB_NAME=wardrobe_staging
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres1}
+      - UPLOADS_DIR=/app/uploads
+      - BACKEND_HOST=194.87.190.248
+    volumes:
+      - ./uploads_staging:/app/uploads
+    networks:
+      - wardrobe_staging
+    depends_on:
+      postgres_staging:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_staging_data:
+  huggingface_cache:
+
+networks:
+  wardrobe_staging:
+    driver: bridge

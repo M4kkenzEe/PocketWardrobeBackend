@@ -1,0 +1,121 @@
+version: '3.8'
+# Local development stack — no nginx, no SSL, backend built from source.
+#
+# Quick start:
+#   cp .env.local.example .env.local
+#   docker-compose -f docker-compose.local.yml up -d
+#
+# With AI services (slow first start — downloads models):
+#   docker-compose -f docker-compose.local.yml --profile ai up -d
+#
+# Smoke-test against local:
+#   ./scripts/smoke-test.sh --url http://localhost:8080
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: wardrobe_local_db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-wardrobe_dev}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-devpass}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - postgres_local_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - wardrobe_local
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-wardrobe_dev}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wardrobe_local_backend
+    env_file: .env.local
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432
+      SERVER_HOST: localhost
+      SERVER_SCHEME: http
+      SERVER_PORT: 8080
+      REMOVE_BG_SERVICE_URL: http://removebg:8000/
+      ANALYSIS_SERVICE_URL: http://ai-analyzer:8088/
+      RECOMMENDATION_SERVICE_URL: http://recommendation:8001/
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./looks:/app/looks
+    networks:
+      - wardrobe_local
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  removebg:
+    image: yura91191/removebg-service:amd64
+    container_name: wardrobe_local_removebg
+    profiles: ["ai"]
+    networks:
+      - wardrobe_local
+    ports:
+      - "8000:8000"
+
+  ai-analyzer:
+    image: yura91191/fashion-analyzer:latest
+    container_name: wardrobe_local_analyzer
+    profiles: ["ai"]
+    volumes:
+      - huggingface_local_cache:/root/.cache/huggingface
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ANALYZER_MODEL_ID=patrickjohncyh/fashion-clip
+      - ANALYZER_PROMPTS=catalog
+    networks:
+      - wardrobe_local
+    ports:
+      - "8088:8088"
+    command: uvicorn main:app --host 0.0.0.0 --port 8088
+
+  recommendation:
+    image: yura91191/recommendation-service:amd64
+    container_name: wardrobe_local_recommendation
+    profiles: ["ai"]
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-wardrobe_dev}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-devpass}
+      - UPLOADS_DIR=/app/uploads
+      - BACKEND_HOST=localhost
+    volumes:
+      - ./uploads:/app/uploads
+    networks:
+      - wardrobe_local
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_local_data:
+  huggingface_local_cache:
+
+networks:
+  wardrobe_local:
+    driver: bridge
