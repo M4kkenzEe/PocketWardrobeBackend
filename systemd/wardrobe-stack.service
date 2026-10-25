@@ -1,0 +1,18 @@
+[Unit]
+Description=PocketWardrobe production stack (docker compose reconcile)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/root
+ExecStart=/usr/local/bin/wardrobe-stack-up.sh
+TimeoutStartSec=600
+# ExecStop намеренно отсутствует: юнит умеет только поднимать стек и
+# физически не может его остановить. Так `systemctl stop/restart` не
+# способен уронить прод.
+
+[Install]
+WantedBy=multi-user.target
