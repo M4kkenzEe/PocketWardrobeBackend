@@ -127,6 +127,14 @@ fun Application.configureRouting() {
                         val userId = decoded.getClaim("userId").asInt()
                         val user = userService.findUserById(userId)
 
+                        val tokenVersion = decoded.getClaim("tokenVersion")?.asLong() ?: 0L
+                        if (user != null && user.tokenVersion != tokenVersion) {
+                            return@post call.respond(HttpStatusCode.Unauthorized, ErrorResponse(
+                                error = "Unauthorized",
+                                message = "Token has been revoked"
+                            ))
+                        }
+
                         if (user != null) {
                             val tokens = JWTConfig.generateTokenPair(user)
                             val oldExpiresAt = decoded.expiresAt?.time ?: 0L
@@ -200,10 +208,11 @@ fun Application.configureRouting() {
 
                     val newHash = BCrypt.hashpw(request.newPassword, BCrypt.gensalt())
                     userService.updatePassword(user.userId, newHash)
+                    userService.incrementTokenVersion(user.userId)
                     passwordResetRepository.markUsed(resetCode.id)
                     passwordResetRepository.deleteUserCodes(user.userId)
 
-                    val updatedUser = user.copy(passwordHash = newHash)
+                    val updatedUser = userService.findUserById(user.userId)!!
                     val tokens = JWTConfig.generateTokenPair(updatedUser)
                     call.respond(HttpStatusCode.OK, LoginResponse(
                         accessToken = tokens.accessToken,

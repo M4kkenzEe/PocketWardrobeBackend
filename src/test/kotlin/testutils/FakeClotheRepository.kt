@@ -293,6 +293,7 @@ class FakeUserRepository(private val isPro: Boolean = false, private val emailUs
         User(userId = userId, username = "testuser", email = "test@test.com", passwordHash = "", gender = null, isPro = isPro)
     override suspend fun authenticate(username: String, password: String): User? = null
     override suspend fun updatePassword(userId: Int, newPasswordHash: String) {}
+    override suspend fun incrementTokenVersion(userId: Int) {}
 }
 
 class FakeLookRepository : LookRepository {

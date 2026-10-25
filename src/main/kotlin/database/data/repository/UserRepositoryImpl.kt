@@ -66,6 +66,10 @@ class UserRepositoryImpl : UserRepository {
         UserDao.findById(userId)?.passwordHash = newPasswordHash
     }
 
+    override suspend fun incrementTokenVersion(userId: Int): Unit = suspendTransaction {
+        UserDao.findById(userId)?.let { it.tokenVersion = it.tokenVersion + 1 }
+    }
+
     private fun verifyPassword(password: String, passwordHash: String): Boolean {
         return BCrypt.checkpw(password, passwordHash)
     }

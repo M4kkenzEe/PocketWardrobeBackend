@@ -9,4 +9,5 @@ interface UserRepository {
     suspend fun findUserById(userId: Int): User?
     suspend fun authenticate(username: String, password: String): User?
     suspend fun updatePassword(userId: Int, newPasswordHash: String)
+    suspend fun incrementTokenVersion(userId: Int)
 }

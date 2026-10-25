@@ -36,6 +36,7 @@ object JWTConfig {
             .withIssuer(issuer)
             .withClaim("userId", user.userId)
             .withClaim("type", "refresh")
+            .withClaim("tokenVersion", user.tokenVersion)
             .withExpiresAt(Date(System.currentTimeMillis() + refreshValidityMs))
             .withJWTId(UUID.randomUUID().toString())
             .sign(algorithm)

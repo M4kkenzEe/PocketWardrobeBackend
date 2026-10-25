@@ -80,6 +80,7 @@ fun Application.configureDatabase() {
         exec("CREATE INDEX IF NOT EXISTS idx_clothes_root_clothe_id ON clothes(root_clothe_id)")
         exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_pro BOOLEAN NOT NULL DEFAULT FALSE")
         exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS pro_until TIMESTAMP NULL")
+        exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version BIGINT NOT NULL DEFAULT 0")
     }
 
     log.info("✓ Database configured successfully")

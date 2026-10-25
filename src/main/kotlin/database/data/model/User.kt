@@ -15,7 +15,8 @@ data class User(
     val passwordHash: String,
     val gender: String?,
     val isPro: Boolean = false,
-    val proUntil: Instant? = null
+    val proUntil: Instant? = null,
+    val tokenVersion: Long = 0
 )
 
 fun User.isProActive(): Boolean =
@@ -28,6 +29,7 @@ object UserTable : IntIdTable("users") {
     val gender = varchar("gender", 20).nullable()
     val isPro = bool("is_pro").default(false)
     val proUntil = timestamp("pro_until").nullable()
+    val tokenVersion = long("token_version").default(0)
 }
 
 class UserDao(id: EntityID<Int>) : IntEntity(id) {
@@ -39,6 +41,7 @@ class UserDao(id: EntityID<Int>) : IntEntity(id) {
     var gender by UserTable.gender
     var isPro by UserTable.isPro
     var proUntil by UserTable.proUntil
+    var tokenVersion by UserTable.tokenVersion
 }
 
 fun daoToModel(dao: UserDao) = User(
@@ -48,5 +51,6 @@ fun daoToModel(dao: UserDao) = User(
     passwordHash = dao.passwordHash,
     gender = dao.gender,
     isPro = dao.isPro,
-    proUntil = dao.proUntil
+    proUntil = dao.proUntil,
+    tokenVersion = dao.tokenVersion
 )
