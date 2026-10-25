@@ -13,7 +13,7 @@ import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import java.util.Properties
 
-class EmailService {
+open class EmailService {
     private val log = LoggerFactory.getLogger(EmailService::class.java)
 
     private val session: Session? by lazy {
@@ -31,7 +31,7 @@ class EmailService {
         })
     }
 
-    suspend fun sendPasswordResetCode(toEmail: String, code: String) = withContext(Dispatchers.IO) {
+    open suspend fun sendPasswordResetCode(toEmail: String, code: String): Unit = withContext(Dispatchers.IO) {
         val s = session ?: run {
             log.warn("SMTP not configured — skipping email to $toEmail (code: $code)")
             return@withContext

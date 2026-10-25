@@ -111,8 +111,8 @@ fun Application.testClothesModule(
 
 /**
  * Test module for auth routes. Calls the production [configureRouting] so tests
- * cover the real handler, not a copy of it. EmailService is real but is a no-op
- * when SMTP is not configured (test environment).
+ * cover the real handler, not a copy of it. EmailService is faked so tests never
+ * open an SMTP connection, even when .env carries real SMTP credentials.
  *
  * Requires: .env with JWT_SECRET, DB_URL, DB_USER, DB_PASSWORD, DB_NAME,
  * REMOVE_BG_SERVICE_URL, ANALYSIS_SERVICE_URL (same requirement as ConfigValidatorTest).
@@ -120,7 +120,8 @@ fun Application.testClothesModule(
 fun Application.testAuthModule(
     passwordResetRepo: PasswordResetRepository,
     userRepo: UserRepository = FakeUserRepository(),
-    revokedTokenRepo: RevokedTokenRepository = FakeRevokedTokenRepository()
+    revokedTokenRepo: RevokedTokenRepository = FakeRevokedTokenRepository(),
+    emailService: EmailService = FakeEmailService()
 ) {
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true })
@@ -149,7 +150,7 @@ fun Application.testAuthModule(
             single<UserRepository> { userRepo }
             single<RevokedTokenRepository> { revokedTokenRepo }
             single<PasswordResetRepository> { passwordResetRepo }
-            single<EmailService> { EmailService() }
+            single<EmailService> { emailService }
         })
     }
 
