@@ -7,6 +7,8 @@ import com.example.database.data.model.ShareLinkResponse
 import com.example.database.domain.repository.LookRepository
 import com.example.database.domain.repository.SharedLookRepository
 import com.example.database.domain.repository.UserLookRepository
+import com.example.database.domain.repository.UserRepository
+import com.example.usecases.EmailNotVerifiedException
 import com.example.usecases.GenerateLookUseCase
 import com.example.usecases.QuotaExceededException
 import com.example.usecases.QuotaUseCase
@@ -37,6 +39,7 @@ fun Application.looks() {
     val userLookRepository: UserLookRepository by inject()
     val generateLookUseCase: GenerateLookUseCase by inject()
     val quotaUseCase: QuotaUseCase by inject()
+    val userRepository: UserRepository by inject()
     routing {
         staticFiles("/looks", File(EnvironmentConfig.looksDirectory))
         authenticate {
@@ -168,6 +171,12 @@ fun Application.looks() {
                         post("/generate") {
                             val userId = call.principal<UserPrincipal>()?.userId
                                 ?: throw IllegalStateException("User not authenticated")
+
+                            val user = userRepository.findUserById(userId)
+                            if (user == null || !user.emailVerified) {
+                                throw EmailNotVerifiedException()
+                            }
+
                             try {
                                 val request = try {
                                     call.receive<GenerateLookRequest>()

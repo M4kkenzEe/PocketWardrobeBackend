@@ -1,6 +1,8 @@
 package plugins
 
+import com.example.usecases.EmailNotVerifiedException
 import com.example.usecases.FreemiumLimitException
+import com.example.usecases.ResendVerificationCooldownException
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.statuspages.*
@@ -34,6 +36,25 @@ fun Application.configureErrorHandling() {
             call.respond(
                 HttpStatusCode.PaymentRequired,
                 FreemiumLimitErrorResponse(error = "FREEMIUM_LIMIT", limit = cause.limit, current = cause.current)
+            )
+        }
+
+        // Email not verified — user must complete email verification before using this feature.
+        exception<EmailNotVerifiedException> { call, _ ->
+            call.respond(
+                HttpStatusCode.Forbidden,
+                ErrorResponse(error = "email_not_verified", message = "Please verify your email address to use this feature")
+            )
+        }
+
+        // Resend verification cooldown — the user requested a new code too soon.
+        exception<ResendVerificationCooldownException> { call, cause ->
+            call.respond(
+                HttpStatusCode.TooManyRequests,
+                ErrorResponse(
+                    error = "TooManyRequests",
+                    message = "Please wait ${cause.retryAfterSeconds} seconds before requesting a new code"
+                )
             )
         }
 

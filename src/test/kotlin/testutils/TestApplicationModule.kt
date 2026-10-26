@@ -4,16 +4,19 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.example.auth.model.UserPrincipal
 import com.example.database.domain.repository.ClotheRepository
+import com.example.database.domain.repository.EmailVerificationRepository
 import com.example.database.domain.repository.PasswordResetRepository
 import com.example.database.domain.repository.RevokedTokenRepository
 import com.example.database.domain.repository.UserClotheRepository
 import com.example.database.domain.repository.UserRepository
 import com.example.routes.clothes
 import com.example.routes.configureRouting
+import com.example.routes.looks
 import com.example.services.ClotheAnalysisService
 import com.example.services.EmailService
 import com.example.services.RemoveBgService
 import com.example.usecases.ClotheUseCase
+import com.example.usecases.EmailVerificationUseCase
 import io.ktor.client.engine.cio.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -28,6 +31,7 @@ import kotlinx.serialization.json.Json
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
 import plugins.ErrorResponse
+import plugins.configureErrorHandling
 import kotlin.time.Duration.Companion.minutes
 import io.ktor.client.HttpClient as KtorHttpClient
 
@@ -35,7 +39,7 @@ const val TEST_JWT_SECRET   = "test-secret-key-for-pocket-wardrobe-tests-32ch"
 const val TEST_JWT_ISSUER   = "pocket-wardrobe-test"
 const val TEST_JWT_AUDIENCE = "pocket-wardrobe-test-audience"
 
-private fun Application.installTestJwtAuth() {
+fun Application.installTestJwtAuth() {
     val algorithm = Algorithm.HMAC256(TEST_JWT_SECRET)
     authentication {
         jwt {
@@ -121,18 +125,14 @@ fun Application.testAuthModule(
     passwordResetRepo: PasswordResetRepository,
     userRepo: UserRepository = FakeUserRepository(),
     revokedTokenRepo: RevokedTokenRepository = FakeRevokedTokenRepository(),
-    emailService: EmailService = FakeEmailService()
+    emailService: EmailService = FakeEmailService(),
+    emailVerificationRepo: EmailVerificationRepository = FakeEmailVerificationRepository()
 ) {
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true })
     }
 
-    install(StatusPages) {
-        exception<Throwable> { call, _ ->
-            call.respond(HttpStatusCode.InternalServerError,
-                ErrorResponse("Internal server error", "An unexpected error occurred."))
-        }
-    }
+    configureErrorHandling()
 
     install(RateLimit) {
         register(RateLimitName("auth")) {
@@ -151,8 +151,47 @@ fun Application.testAuthModule(
             single<RevokedTokenRepository> { revokedTokenRepo }
             single<PasswordResetRepository> { passwordResetRepo }
             single<EmailService> { emailService }
+            single<EmailVerificationRepository> { emailVerificationRepo }
+            single {
+                EmailVerificationUseCase(
+                    emailVerificationRepository = emailVerificationRepo,
+                    userRepository = userRepo,
+                    emailService = emailService
+                )
+            }
         })
     }
 
     configureRouting()
+}
+
+fun Application.testLooksEmailVerificationModule(
+    userRepo: UserRepository
+) {
+    install(ContentNegotiation) {
+        json(Json { ignoreUnknownKeys = true })
+    }
+    configureErrorHandling()
+    install(RateLimit) {
+        register(RateLimitName("default")) { rateLimiter(limit = 10_000, refillPeriod = 1.minutes) }
+        register(RateLimitName("upload")) { rateLimiter(limit = 10_000, refillPeriod = 1.minutes) }
+        register(RateLimitName("generate")) { rateLimiter(limit = 10_000, refillPeriod = 1.minutes) }
+    }
+    installTestJwtAuth()
+    install(Koin) {
+        modules(module {
+            single<UserRepository> { userRepo }
+            single<com.example.database.domain.repository.LookRepository> { FakeLookRepository() }
+            single<com.example.database.domain.repository.SharedLookRepository> { FakeSharedLookRepository() }
+            single<com.example.database.domain.repository.UserLookRepository> { FakeUserLookRepository() }
+            single {
+                com.example.usecases.GenerateLookUseCase(
+                    generateLookService = com.example.services.GenerateLookService(KtorHttpClient(CIO), "http://stub-never-called"),
+                    lookRepository = FakeLookRepository()
+                )
+            }
+            single { com.example.usecases.QuotaUseCase(userRepository = userRepo) }
+        })
+    }
+    looks()
 }

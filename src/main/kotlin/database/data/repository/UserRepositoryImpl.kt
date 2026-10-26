@@ -30,6 +30,7 @@ class UserRepositoryImpl : UserRepository {
             gender = user.gender
             isPro = true
             proUntil = trialEndsAt
+            emailVerified = false
         }.let { daoToModel(it) }
     }
 
@@ -68,6 +69,10 @@ class UserRepositoryImpl : UserRepository {
 
     override suspend fun incrementTokenVersion(userId: Int): Unit = suspendTransaction {
         UserDao.findById(userId)?.let { it.tokenVersion = it.tokenVersion + 1 }
+    }
+
+    override suspend fun setEmailVerified(userId: Int): Unit = suspendTransaction {
+        UserDao.findById(userId)?.emailVerified = true
     }
 
     private fun verifyPassword(password: String, passwordHash: String): Boolean {

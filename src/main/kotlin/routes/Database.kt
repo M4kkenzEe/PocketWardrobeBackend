@@ -3,6 +3,7 @@ package com.example.routes
 import com.example.auth.EnvironmentConfig
 import com.example.database.data.model.ClotheTable
 import com.example.database.data.model.DailyQuotaTable
+import com.example.database.data.model.EmailVerificationCodeTable
 import com.example.database.data.model.LookItemTable
 import com.example.database.data.model.LookTable
 import com.example.database.data.model.PasswordResetCodeTable
@@ -69,7 +70,8 @@ fun Application.configureDatabase() {
             SharedLookTable,
             RevokedTokenTable,
             DailyQuotaTable,
-            PasswordResetCodeTable
+            PasswordResetCodeTable,
+            EmailVerificationCodeTable
         )
         // Add new columns to existing tables (safe, idempotent)
         exec("ALTER TABLE looks ADD COLUMN IF NOT EXISTS generated_by_ai BOOLEAN DEFAULT FALSE NOT NULL")
@@ -81,6 +83,10 @@ fun Application.configureDatabase() {
         exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_pro BOOLEAN NOT NULL DEFAULT FALSE")
         exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS pro_until TIMESTAMP NULL")
         exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version BIGINT NOT NULL DEFAULT 0")
+        // email_verified: existing users default TRUE (they already registered and are active).
+        // New users are created with FALSE (set by UserRepositoryImpl) — restore that default after migration.
+        exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT TRUE")
+        exec("ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT FALSE")
     }
 
     log.info("✓ Database configured successfully")

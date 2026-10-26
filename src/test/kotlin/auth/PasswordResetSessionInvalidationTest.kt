@@ -49,6 +49,7 @@ class PasswordResetSessionInvalidationTest {
             override suspend fun findUserByEmail(email: String): User? = null
             override suspend fun authenticate(username: String, password: String): User? = null
             override suspend fun updatePassword(userId: Int, newPasswordHash: String) {}
+            override suspend fun setEmailVerified(userId: Int) {}
         }
 
         application {
@@ -102,6 +103,7 @@ class PasswordResetSessionInvalidationTest {
             override suspend fun findUserByEmail(email: String): User? = null
             override suspend fun authenticate(username: String, password: String): User? = null
             override suspend fun updatePassword(userId: Int, newPasswordHash: String) {}
+            override suspend fun setEmailVerified(userId: Int) {}
         }
 
         application {

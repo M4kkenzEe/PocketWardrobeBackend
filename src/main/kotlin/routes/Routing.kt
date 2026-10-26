@@ -6,6 +6,8 @@ import com.example.auth.model.LoginResponse
 import com.example.auth.model.RefreshRequest
 import com.example.auth.model.RegisterRequest
 import com.example.auth.model.ResetPasswordRequest
+import com.example.auth.model.UserPrincipal
+import com.example.auth.model.VerifyEmailRequest
 import org.mindrot.jbcrypt.BCrypt
 import com.example.auth.service.JWTConfig
 import com.example.database.data.model.User
@@ -13,6 +15,7 @@ import com.example.database.domain.repository.PasswordResetRepository
 import com.example.database.domain.repository.RevokedTokenRepository
 import com.example.database.domain.repository.UserRepository
 import com.example.services.EmailService
+import com.example.usecases.EmailVerificationUseCase
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -21,6 +24,7 @@ import io.ktor.server.plugins.ratelimit.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.coroutines.launch
 import org.koin.ktor.ext.inject
 import io.ktor.server.plugins.ratelimit.RateLimitName
 import plugins.ErrorResponse
@@ -31,6 +35,7 @@ fun Application.configureRouting() {
     val userService: UserRepository by inject()
     val revokedTokenRepository: RevokedTokenRepository by inject()
     val passwordResetRepository: PasswordResetRepository by inject()
+    val emailVerificationUseCase: EmailVerificationUseCase by inject()
     val emailService: EmailService by inject()
 
     routing {
@@ -72,6 +77,8 @@ fun Application.configureRouting() {
                             expiresAt = tokens.expiresAt,
                             userId = user.userId
                         ))
+                        val registeredUser = user
+                        launch { emailVerificationUseCase.sendCode(registeredUser) }
                     } else {
                         call.respond(HttpStatusCode.Conflict, ErrorResponse(
                             error = "Conflict",
@@ -247,6 +254,54 @@ fun Application.configureRouting() {
                             error = "EmailError",
                             message = "Не удалось отправить письмо"
                         ))
+                    }
+                }
+            }
+
+            rateLimit(RateLimitName("auth")) {
+                authenticate {
+                    post("/auth/verify-email") {
+                        val userId = call.principal<UserPrincipal>()?.userId
+                            ?: return@post call.respond(HttpStatusCode.Unauthorized, ErrorResponse(
+                                error = "Unauthorized",
+                                message = "Authentication required"
+                            ))
+
+                        val request = call.receive<VerifyEmailRequest>()
+                        if (request.code.length != 6 || !request.code.all { it.isDigit() }) {
+                            return@post call.respond(HttpStatusCode.BadRequest, ErrorResponse(
+                                error = "BadRequest",
+                                message = "Code must be a 6-digit number"
+                            ))
+                        }
+
+                        val verified = emailVerificationUseCase.verifyCode(userId, request.code)
+                            ?: return@post call.respond(HttpStatusCode.BadRequest, ErrorResponse(
+                                error = "BadRequest",
+                                message = "Invalid or expired code"
+                            ))
+
+                        if (!verified) {
+                            return@post call.respond(HttpStatusCode.OK, mapOf("message" to "Email already verified"))
+                        }
+
+                        call.respond(HttpStatusCode.OK, mapOf("message" to "Email verified successfully"))
+                    }
+
+                    post("/auth/resend-verification") {
+                        val userId = call.principal<UserPrincipal>()?.userId
+                            ?: return@post call.respond(HttpStatusCode.Unauthorized, ErrorResponse(
+                                error = "Unauthorized",
+                                message = "Authentication required"
+                            ))
+
+                        val resent = emailVerificationUseCase.resendCode(userId)
+
+                        if (!resent) {
+                            return@post call.respond(HttpStatusCode.OK, mapOf("message" to "Email already verified"))
+                        }
+
+                        call.respond(HttpStatusCode.OK, mapOf("message" to "Verification code sent"))
                     }
                 }
             }

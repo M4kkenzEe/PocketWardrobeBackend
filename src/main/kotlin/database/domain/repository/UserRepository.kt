@@ -10,4 +10,5 @@ interface UserRepository {
     suspend fun authenticate(username: String, password: String): User?
     suspend fun updatePassword(userId: Int, newPasswordHash: String)
     suspend fun incrementTokenVersion(userId: Int)
+    suspend fun setEmailVerified(userId: Int)
 }

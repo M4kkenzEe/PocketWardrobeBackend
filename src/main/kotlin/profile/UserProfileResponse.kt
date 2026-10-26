@@ -13,6 +13,7 @@ data class QuotaInfo(
 data class UserProfileResponse(
     val name: String,
     val email: String,
+    val email_verified: Boolean,
     val gender: String,
     val clothes_count: Int,
     val looks_count: Int,
@@ -20,4 +21,3 @@ data class UserProfileResponse(
     val pro_trial_ends_at: String?,
     val quota: QuotaInfo
 )
-

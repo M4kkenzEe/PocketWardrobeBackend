@@ -3,11 +3,17 @@ package com.example.testutils
 import com.example.services.EmailService
 
 class FakeEmailService : EmailService() {
-    private val sent = mutableListOf<Pair<String, String>>()
+    private val sentPasswordResets = mutableListOf<Pair<String, String>>()
+    private val sentVerificationCodes = mutableListOf<Pair<String, String>>()
 
     override suspend fun sendPasswordResetCode(toEmail: String, code: String) {
-        sent.add(toEmail to code)
+        sentPasswordResets.add(toEmail to code)
     }
 
-    fun sentCodes(): List<Pair<String, String>> = sent.toList()
+    override suspend fun sendEmailVerificationCode(toEmail: String, code: String) {
+        sentVerificationCodes.add(toEmail to code)
+    }
+
+    fun sentCodes(): List<Pair<String, String>> = sentPasswordResets.toList()
+    fun sentVerifications(): List<Pair<String, String>> = sentVerificationCodes.toList()
 }

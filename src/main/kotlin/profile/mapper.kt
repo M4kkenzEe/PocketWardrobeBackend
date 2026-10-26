@@ -18,6 +18,7 @@ fun User.toProfileResponse(clothesCount: Int, looksCount: Int, quotaToday: Int):
     return UserProfileResponse(
         name = username,
         email = email,
+        email_verified = emailVerified,
         gender = gender ?: "OTHER",
         clothes_count = clothesCount,
         looks_count = looksCount,

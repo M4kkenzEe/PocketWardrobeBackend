@@ -6,11 +6,16 @@ import com.example.database.data.model.ClotheFilter
 import com.example.database.data.model.Look
 import com.example.database.domain.model.LookPreview
 import com.example.database.data.model.User
+import com.example.database.data.model.SharedLook
+import com.example.database.data.model.SharedLookDetails
 import com.example.database.domain.repository.AddClotheResult
 import com.example.database.domain.repository.ClotheRepository
 import com.example.database.domain.repository.LookRepository
+import com.example.database.domain.repository.SharedLookRepository
 import com.example.database.domain.repository.UserClotheRepository
+import com.example.database.domain.repository.UserLookRepository
 import com.example.database.domain.repository.UserRepository
+
 
 const val TEST_USER_ID = 1
 
@@ -285,15 +290,25 @@ class FakeUserClotheRepository(private val clotheCount: Int = 0, private val isP
         else AddClotheResult.Success(clotheId)
 }
 
-class FakeUserRepository(private val isPro: Boolean = false, private val emailUser: User? = null) : UserRepository {
-    override suspend fun register(user: User): User? = null
+class FakeUserRepository(
+    private val isPro: Boolean = false,
+    private val emailUser: User? = null,
+    private val emailVerified: Boolean = true,
+    private val registeredUser: User? = null
+) : UserRepository {
+    private var emailVerifiedState = emailVerified
+
+    val isEmailVerified: Boolean get() = emailVerifiedState
+
+    override suspend fun register(user: User): User? = registeredUser
     override suspend fun findUserByUsername(userName: String): User? = null
     override suspend fun findUserByEmail(email: String): User? = emailUser
     override suspend fun findUserById(userId: Int): User =
-        User(userId = userId, username = "testuser", email = "test@test.com", passwordHash = "", gender = null, isPro = isPro)
+        User(userId = userId, username = "testuser", email = "test@test.com", passwordHash = "", gender = null, isPro = isPro, emailVerified = emailVerifiedState)
     override suspend fun authenticate(username: String, password: String): User? = null
     override suspend fun updatePassword(userId: Int, newPasswordHash: String) {}
     override suspend fun incrementTokenVersion(userId: Int) {}
+    override suspend fun setEmailVerified(userId: Int) { emailVerifiedState = true }
 }
 
 class FakeLookRepository : LookRepository {
@@ -303,3 +318,19 @@ class FakeLookRepository : LookRepository {
     override suspend fun getLookList(userId: Int): List<LookPreview> = emptyList()
     override suspend fun updateLookUrl(lookId: Int, url: String) {}
 }
+
+class FakeSharedLookRepository : SharedLookRepository {
+    override suspend fun createShareToken(lookId: Int, ownerId: Int): String = "fake-token"
+    override suspend fun getLookByShareToken(shareToken: String): SharedLookDetails? = null
+    override suspend fun revokeShareToken(shareToken: String, ownerId: Int): Boolean = true
+    override suspend fun getShareTokensForLook(lookId: Int, ownerId: Int): List<SharedLook> = emptyList()
+}
+
+class FakeUserLookRepository : UserLookRepository {
+    override suspend fun addLookToUser(userId: Int, lookId: Int): Boolean = true
+    override suspend fun removeLookFromUser(userId: Int, lookId: Int): Boolean = true
+    override suspend fun restoreLookForUser(userId: Int, lookId: Int): Boolean = true
+    override suspend fun isLookInUserWardrobe(userId: Int, lookId: Int): Boolean = true
+    override suspend fun countByUserId(userId: Int): Int = 0
+}
+

@@ -42,3 +42,8 @@ data class ResetPasswordRequest(
     val code: String,
     val newPassword: String
 )
+
+@Serializable
+data class VerifyEmailRequest(
+    val code: String
+)
