@@ -2,18 +2,23 @@ package com.example.database.data.repository
 
 import com.example.database.data.model.User
 import com.example.database.data.model.UserDao
+import com.example.database.data.model.UserClotheTable
 import com.example.database.data.model.UserTable
 import com.example.database.data.model.daoToModel
+import com.example.database.domain.model.UserWithClothesCount
 import com.example.database.domain.repository.UserRepository
 import com.example.database.suspendTransaction
 import kotlinx.datetime.Clock
 import kotlin.time.Duration.Companion.days
+import org.jetbrains.exposed.v1.core.JoinType
+import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.jdbc.select
 import org.mindrot.jbcrypt.BCrypt
 
 class UserRepositoryImpl : UserRepository {
 
-    override suspend fun register(user: User): User? = suspendTransaction {
+    override suspend fun register(user: User, provisionedByAdmin: Boolean): User? = suspendTransaction {
         val existingUser = UserDao.find {
             (UserTable.username eq user.username) or (UserTable.email eq user.email)
         }.firstOrNull()
@@ -22,16 +27,38 @@ class UserRepositoryImpl : UserRepository {
             return@suspendTransaction null
         }
 
-        val trialEndsAt = Clock.System.now().plus(30.days)
+        val now = Clock.System.now()
         UserDao.new {
             username = user.username
             email = user.email
             passwordHash = BCrypt.hashpw(user.passwordHash, BCrypt.gensalt())
             gender = user.gender
-            isPro = true
-            proUntil = trialEndsAt
-            emailVerified = false
+            isPro = !provisionedByAdmin
+            proUntil = if (provisionedByAdmin) null else now.plus(30.days)
+            emailVerified = provisionedByAdmin
+            createdAt = now
         }.let { daoToModel(it) }
+    }
+
+    override suspend fun findAllWithClothesCount(): List<UserWithClothesCount> = suspendTransaction {
+        val clothesCount = UserClotheTable.id.count()
+        UserTable
+            .join(
+                UserClotheTable,
+                JoinType.LEFT,
+                onColumn = UserTable.id,
+                otherColumn = UserClotheTable.userId,
+                additionalConstraint = { UserClotheTable.isDeleted eq false }
+            )
+            .select(UserTable.columns + clothesCount)
+            .groupBy(UserTable.id)
+            .orderBy(UserTable.id)
+            .map { row ->
+                UserWithClothesCount(
+                    user = daoToModel(UserDao.wrapRow(row)),
+                    clothesCount = row[clothesCount].toInt()
+                )
+            }
     }
 
     override suspend fun findUserByUsername(userName: String): User? = suspendTransaction {

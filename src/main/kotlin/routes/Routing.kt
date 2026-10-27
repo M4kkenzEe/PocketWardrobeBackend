@@ -322,7 +322,7 @@ fun Application.configureRouting() {
     log.info("✓ Routing configured with /api/v1 prefix and rate limiting")
 }
 
-private fun generateUsernameFromEmail(email: String): String {
+internal fun generateUsernameFromEmail(email: String): String {
     val base = email.substringBefore("@")
         .replace(Regex("[^a-zA-Z0-9_]"), "_")
         .take(20)

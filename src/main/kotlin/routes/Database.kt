@@ -87,6 +87,8 @@ fun Application.configureDatabase() {
         // New users are created with FALSE (set by UserRepositoryImpl) — restore that default after migration.
         exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT TRUE")
         exec("ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT FALSE")
+        // created_at: NULL for users registered before this column existed — backfilling now() would be a false date.
+        exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NULL")
     }
 
     log.info("✓ Database configured successfully")

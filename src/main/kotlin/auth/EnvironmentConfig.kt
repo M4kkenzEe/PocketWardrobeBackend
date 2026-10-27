@@ -140,6 +140,9 @@ object EnvironmentConfig {
     val admitadOzonId: String? = getEnv("ADMITAD_OZON_ID")?.takeIf { it.isNotBlank() }
     val admitadLamodaId: String? = getEnv("ADMITAD_LAMODA_ID")?.takeIf { it.isNotBlank() }
 
+    // Admin API (optional — /admin/* answers 503 if not set)
+    val adminSecret: String? = getEnv("ADMIN_SECRET")?.takeIf { it.isNotBlank() }
+
     // SMTP / Email Configuration (optional — email features disabled if not configured)
     val smtpHost: String? = getEnv("SMTP_HOST")?.takeIf { it.isNotBlank() }
     val smtpPort: Int? = getEnv("SMTP_PORT")?.toIntOrNull()

@@ -5,6 +5,7 @@ import com.example.database.data.model.Clothe
 import com.example.database.data.model.ClotheFilter
 import com.example.database.data.model.Look
 import com.example.database.domain.model.LookPreview
+import com.example.database.domain.model.UserWithClothesCount
 import com.example.database.data.model.User
 import com.example.database.data.model.SharedLook
 import com.example.database.data.model.SharedLookDetails
@@ -300,7 +301,8 @@ class FakeUserRepository(
 
     val isEmailVerified: Boolean get() = emailVerifiedState
 
-    override suspend fun register(user: User): User? = registeredUser
+    override suspend fun register(user: User, provisionedByAdmin: Boolean): User? = registeredUser
+    override suspend fun findAllWithClothesCount(): List<UserWithClothesCount> = emptyList()
     override suspend fun findUserByUsername(userName: String): User? = null
     override suspend fun findUserByEmail(email: String): User? = emailUser
     override suspend fun findUserById(userId: Int): User =

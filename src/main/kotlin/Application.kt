@@ -50,6 +50,7 @@ fun Application.module() {
     sharedLooks()
     profile()
     affiliate()
+    admin()
     configureSwagger()
 
     log.info("=" + "=".repeat(69))

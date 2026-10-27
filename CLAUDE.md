@@ -73,6 +73,8 @@ Copy `.env.example` to `.env` before running locally. Required variables validat
 
 Key required variables: `JWT_SECRET` (min 32 chars), `DB_URL`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `REMOVE_BG_SERVICE_URL`, `ANALYSIS_SERVICE_URL`.
 
+Optional: `ADMIN_SECRET` — enables the dev-only admin API (`GET/POST /admin/users`, header `X-Admin-Secret`). Unset or empty means those endpoints answer 503; startup is unaffected.
+
 ## API Structure
 
 All authenticated endpoints are under `/api/v1`. The `/health` endpoint is public. Auth endpoints (`/register`, `/login`, `/refresh`, `/logout`) are defined in `routes/Routing.kt`.

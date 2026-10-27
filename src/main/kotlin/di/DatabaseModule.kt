@@ -1,5 +1,6 @@
 package com.example.di
 
+import com.example.usecases.AdminUserUseCase
 import com.example.usecases.ClotheUseCase
 import com.example.usecases.EmailVerificationUseCase
 import com.example.usecases.GenerateLookUseCase
@@ -39,5 +40,6 @@ val databaseModule = module {
     single { ImportSharedLookUseCase(sharedLookRepository = get(), clotheRepository = get(), lookRepository = get(), userClotheRepository = get(), userRepository = get()) }
     single { GenerateLookUseCase(generateLookService = get(), lookRepository = get()) }
     single { QuotaUseCase(userRepository = get()) }
+    single { AdminUserUseCase(userRepository = get()) }
     single { EmailVerificationUseCase(emailVerificationRepository = get(), userRepository = get(), emailService = get()) }
 }

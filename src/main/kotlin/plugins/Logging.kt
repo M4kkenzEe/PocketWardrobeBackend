@@ -19,7 +19,7 @@ fun Application.configureLogging() {
     intercept(ApplicationCallPipeline.Monitoring) {
         val path = call.request.path()
         val isAuthPath = path.contains("/login") || path.contains("/register") ||
-                path.contains("/refresh") || path.contains("/logout")
+                path.contains("/refresh") || path.contains("/logout") || path.startsWith("/admin/")
         if (!isAuthPath && call.request.contentType().match(ContentType.Application.Json)) {
             val body = runCatching { call.receiveText().take(500) }.getOrNull()
             if (!body.isNullOrBlank()) {

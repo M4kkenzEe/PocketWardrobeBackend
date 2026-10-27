@@ -9,12 +9,14 @@ import com.example.database.domain.repository.PasswordResetRepository
 import com.example.database.domain.repository.RevokedTokenRepository
 import com.example.database.domain.repository.UserClotheRepository
 import com.example.database.domain.repository.UserRepository
+import com.example.routes.admin
 import com.example.routes.clothes
 import com.example.routes.configureRouting
 import com.example.routes.looks
 import com.example.services.ClotheAnalysisService
 import com.example.services.EmailService
 import com.example.services.RemoveBgService
+import com.example.usecases.AdminUserUseCase
 import com.example.usecases.ClotheUseCase
 import com.example.usecases.EmailVerificationUseCase
 import io.ktor.client.engine.cio.*
@@ -152,6 +154,7 @@ fun Application.testAuthModule(
             single<PasswordResetRepository> { passwordResetRepo }
             single<EmailService> { emailService }
             single<EmailVerificationRepository> { emailVerificationRepo }
+            single { AdminUserUseCase(userRepository = userRepo) }
             single {
                 EmailVerificationUseCase(
                     emailVerificationRepository = emailVerificationRepo,
@@ -163,6 +166,20 @@ fun Application.testAuthModule(
     }
 
     configureRouting()
+}
+
+/** Auth routes (so tests can log in as a created user) plus the admin routes under test. */
+fun Application.testAdminModule(
+    userRepo: UserRepository,
+    adminSecret: String?,
+    emailService: EmailService = FakeEmailService()
+) {
+    testAuthModule(
+        passwordResetRepo = FakePasswordResetRepository(),
+        userRepo = userRepo,
+        emailService = emailService
+    )
+    admin(adminSecret)
 }
 
 fun Application.testLooksEmailVerificationModule(

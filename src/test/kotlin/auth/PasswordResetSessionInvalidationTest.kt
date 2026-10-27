@@ -2,6 +2,7 @@ package com.example.auth
 
 import com.example.auth.service.JWTConfig
 import com.example.database.data.model.User
+import com.example.database.domain.model.UserWithClothesCount
 import com.example.database.domain.repository.UserRepository
 import com.example.testutils.FakePasswordResetRepository
 import com.example.testutils.FakeRevokedTokenRepository
@@ -44,7 +45,8 @@ class PasswordResetSessionInvalidationTest {
         val statefulUserRepo = object : UserRepository {
             override suspend fun findUserById(userId: Int) = baseUser.copy(tokenVersion = storedTokenVersion)
             override suspend fun incrementTokenVersion(userId: Int) { storedTokenVersion++ }
-            override suspend fun register(user: User): User? = null
+            override suspend fun register(user: User, provisionedByAdmin: Boolean): User? = null
+            override suspend fun findAllWithClothesCount(): List<UserWithClothesCount> = emptyList()
             override suspend fun findUserByUsername(userName: String): User? = null
             override suspend fun findUserByEmail(email: String): User? = null
             override suspend fun authenticate(username: String, password: String): User? = null
@@ -98,7 +100,8 @@ class PasswordResetSessionInvalidationTest {
         val statefulUserRepo = object : UserRepository {
             override suspend fun findUserById(userId: Int) = baseUser.copy(tokenVersion = storedTokenVersion)
             override suspend fun incrementTokenVersion(userId: Int) { storedTokenVersion++ }
-            override suspend fun register(user: User): User? = null
+            override suspend fun register(user: User, provisionedByAdmin: Boolean): User? = null
+            override suspend fun findAllWithClothesCount(): List<UserWithClothesCount> = emptyList()
             override suspend fun findUserByUsername(userName: String): User? = null
             override suspend fun findUserByEmail(email: String): User? = null
             override suspend fun authenticate(username: String, password: String): User? = null

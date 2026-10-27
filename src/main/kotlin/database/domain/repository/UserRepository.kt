@@ -1,9 +1,15 @@
 package com.example.database.domain.repository
 
 import com.example.database.data.model.User
+import com.example.database.domain.model.UserWithClothesCount
 
 interface UserRepository {
-    suspend fun register(user: User): User?
+    /**
+     * [provisionedByAdmin] skips the registration trial and creates the account already verified,
+     * so accounts made through the admin API need no verification email.
+     */
+    suspend fun register(user: User, provisionedByAdmin: Boolean = false): User?
+    suspend fun findAllWithClothesCount(): List<UserWithClothesCount>
     suspend fun findUserByUsername(userName: String): User?
     suspend fun findUserByEmail(email: String): User?
     suspend fun findUserById(userId: Int): User?
