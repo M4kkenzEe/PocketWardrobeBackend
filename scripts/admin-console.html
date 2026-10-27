@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PocketWardrobe Admin</title>
+<!-- Локальная консоль: открывать двойным кликом (file://). Не публиковать — даёт доступ к проду. -->
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --border: #d2d2d7;
+    --accent: #5b4bdb;
+    --accent-text: #ffffff;
+    --error-bg: #fdecec;
+    --error-text: #a31515;
+    --success-bg: #e6f6ea;
+    --success-text: #14692b;
+    --pro-bg: #fff3cd;
+    --pro-text: #7a5a00;
+    --free-bg: #ececf0;
+    --free-text: #55555c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121214;
+      --surface: #1c1c1f;
+      --text: #f2f2f5;
+      --muted: #9a9aa2;
+      --border: #38383d;
+      --accent: #8b7dff;
+      --accent-text: #121214;
+      --error-bg: #3a1d1d;
+      --error-text: #ff9b9b;
+      --success-bg: #17301d;
+      --success-text: #8fe0a3;
+      --pro-bg: #3d3210;
+      --pro-text: #f5d36b;
+      --free-bg: #2a2a2f;
+      --free-text: #b5b5bd;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { margin: 0; font-size: 17px; flex: 1 1 auto; }
+  main { max-width: 900px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+  section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    min-width: 0;
+  }
+  h2 { margin: 0 0 12px; font-size: 16px; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  input {
+    font: inherit;
+    padding: 8px 10px;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    min-width: 0;
+  }
+  button {
+    font: inherit;
+    padding: 8px 14px;
+    color: var(--accent-text);
+    background: var(--accent);
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .secret-field { flex: 1 1 240px; }
+  .section-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .section-head h2 { margin: 0; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: end; }
+  .hint { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+  .message { margin: 12px 0 0; padding: 8px 12px; border-radius: 6px; }
+  .message.error { background: var(--error-bg); color: var(--error-text); }
+  .message.success { background: var(--success-bg); color: var(--success-text); }
+  .message[hidden] { display: none; }
+  .table-wrap { overflow-wrap: anywhere; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; }
+  th.id, td.id { width: 48px; }
+  th.badge-col, td.badge-col { width: 64px; }
+  th.count, td.count { width: 64px; }
+  th.date, td.date { width: 150px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+  .badge.pro { background: var(--pro-bg); color: var(--pro-text); }
+  .badge.free { background: var(--free-bg); color: var(--free-text); }
+  .empty { color: var(--muted); }
+  @media (max-width: 600px) {
+    th.date, td.date { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>PocketWardrobe Admin</h1>
+  <label class="secret-field">
+    Admin Secret
+    <input id="secret-input" type="password" autocomplete="off" placeholder="X-Admin-Secret">
+  </label>
+</header>
+
+<main>
+  <section>
+    <div class="section-head">
+      <h2>Пользователи</h2>
+      <button id="refresh-button" type="button">Обновить</button>
+    </div>
+    <p id="list-error" class="message error" hidden></p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="id">ID</th>
+            <th>Email</th>
+            <th class="date">Регистрация</th>
+            <th class="badge-col">План</th>
+            <th class="count">Вещей</th>
+          </tr>
+        </thead>
+        <tbody id="users-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Создать тестового пользователя</h2>
+    <form id="create-form">
+      <div class="form-grid">
+        <label>
+          Email
+          <input id="email-input" type="email" required autocomplete="off" maxlength="100" placeholder="test@example.com">
+        </label>
+        <label>
+          Пароль
+          <input id="password-input" type="text" required autocomplete="off" maxlength="128" placeholder="Минимум 8 символов">
+        </label>
+        <button id="submit-button" type="submit">Submit</button>
+      </div>
+      <p class="hint">Пароль: 8–128 символов, минимум одна заглавная буква и одна цифра.</p>
+      <p id="create-error" class="message error" hidden></p>
+      <p id="create-success" class="message success" hidden></p>
+    </form>
+  </section>
+</main>
+
+<script>
+const API_BASE = "https://api.clothis.tech";
+const SECRET_STORAGE_KEY = "admin_secret";
+
+const secretInput = document.getElementById("secret-input");
+const refreshButton = document.getElementById("refresh-button");
+const usersBody = document.getElementById("users-body");
+const listError = document.getElementById("list-error");
+const createForm = document.getElementById("create-form");
+const emailInput = document.getElementById("email-input");
+const passwordInput = document.getElementById("password-input");
+const submitButton = document.getElementById("submit-button");
+const createError = document.getElementById("create-error");
+const createSuccess = document.getElementById("create-success");
+
+class ApiError extends Error {}
+
+function readStoredSecret() {
+  try {
+    return localStorage.getItem(SECRET_STORAGE_KEY) || "";
+  } catch (error) {
+    return "";
+  }
+}
+
+function storeSecret(secret) {
+  try {
+    localStorage.setItem(SECRET_STORAGE_KEY, secret);
+  } catch (error) {
+    // file:// может не давать localStorage — консоль работает и без сохранения
+  }
+}
+
+function errorMessageForStatus(status, body) {
+  if (status === 403) return "Неверный Admin Secret";
+  if (status === 503) return "Admin API выключен на сервере (ADMIN_SECRET не задан)";
+  if (status === 409) return "Пользователь с таким email уже существует";
+  if (status === 400) return (body && body.message) || "Невалидные email или пароль";
+  return "Ошибка сервера (" + status + ")";
+}
+
+async function adminRequest(method, payload) {
+  const headers = { "X-Admin-Secret": secretInput.value };
+  const options = { method, headers };
+  if (payload) {
+    headers["Content-Type"] = "application/json";
+    options.body = JSON.stringify(payload);
+  }
+
+  let response;
+  try {
+    response = await fetch(API_BASE + "/admin/users", options);
+  } catch (error) {
+    throw new ApiError("API недоступен");
+  }
+
+  if (response.ok) return response.json();
+
+  const body = await response.json().catch(() => null);
+  throw new ApiError(errorMessageForStatus(response.status, body));
+}
+
+function showMessage(element, text) {
+  element.textContent = text;
+  element.hidden = !text;
+}
+
+function formatDate(isoString) {
+  if (!isoString) return "—";
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("ru-RU", { dateStyle: "medium", timeStyle: "short" });
+}
+
+function createCell(className, text) {
+  const cell = document.createElement("td");
+  if (className) cell.className = className;
+  cell.textContent = text;
+  return cell;
+}
+
+function createBadgeCell(isPro) {
+  const cell = document.createElement("td");
+  cell.className = "badge-col";
+  const badge = document.createElement("span");
+  badge.className = "badge " + (isPro ? "pro" : "free");
+  badge.textContent = isPro ? "Pro" : "Free";
+  cell.appendChild(badge);
+  return cell;
+}
+
+function createUserRow(user) {
+  const row = document.createElement("tr");
+  row.appendChild(createCell("id", String(user.id)));
+  row.appendChild(createCell("", user.email));
+  row.appendChild(createCell("date", formatDate(user.createdAt)));
+  row.appendChild(createBadgeCell(user.isPro));
+  row.appendChild(createCell("count", String(user.clothesCount)));
+  return row;
+}
+
+function renderUsers(users) {
+  usersBody.replaceChildren();
+  if (users.length === 0) {
+    const row = document.createElement("tr");
+    const cell = createCell("empty", "Пользователей нет");
+    cell.colSpan = 5;
+    row.appendChild(cell);
+    usersBody.appendChild(row);
+    return;
+  }
+  users.forEach((user) => usersBody.appendChild(createUserRow(user)));
+}
+
+async function loadUsers() {
+  showMessage(listError, "");
+  refreshButton.disabled = true;
+  try {
+    renderUsers(await adminRequest("GET"));
+  } catch (error) {
+    showMessage(listError, error.message);
+  } finally {
+    refreshButton.disabled = false;
+  }
+}
+
+async function createUser(event) {
+  event.preventDefault();
+  showMessage(createError, "");
+  showMessage(createSuccess, "");
+  submitButton.disabled = true;
+  try {
+    const createdUser = await adminRequest("POST", {
+      email: emailInput.value.trim(),
+      password: passwordInput.value,
+    });
+    passwordInput.value = "";
+    showMessage(createSuccess, "Создан: " + createdUser.email);
+    await loadUsers();
+  } catch (error) {
+    showMessage(createError, error.message);
+  } finally {
+    submitButton.disabled = false;
+  }
+}
+
+secretInput.value = readStoredSecret();
+secretInput.addEventListener("input", () => storeSecret(secretInput.value));
+refreshButton.addEventListener("click", loadUsers);
+createForm.addEventListener("submit", createUser);
+
+if (secretInput.value) loadUsers();
+</script>
+</body>
+</html>
