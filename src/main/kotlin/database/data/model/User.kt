@@ -21,7 +21,9 @@ data class User(
     val createdAt: Instant? = null
 )
 
-fun User.isProActive(): Boolean =
+fun User.isProActive(): Boolean = isProActive(isPro, proUntil)
+
+fun isProActive(isPro: Boolean, proUntil: Instant?): Boolean =
     isPro || (proUntil != null && proUntil > Clock.System.now())
 
 object UserTable : IntIdTable("users") {

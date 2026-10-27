@@ -2,6 +2,7 @@ package com.example.testutils
 
 import com.example.database.data.model.User
 import com.example.database.domain.model.UserWithClothesCount
+import com.example.database.domain.model.withClothesCount
 import com.example.database.domain.repository.UserRepository
 import kotlinx.datetime.Clock
 import org.mindrot.jbcrypt.BCrypt
@@ -14,10 +15,15 @@ import kotlin.time.Duration.Companion.days
 class InMemoryUserRepository : UserRepository {
     private val users = mutableListOf<User>()
     private val clothesCountByUserId = mutableMapOf<Int, Int>()
+    private val legacyUsersWithoutEmail = mutableListOf<UserWithClothesCount>()
 
     fun seed(user: User, clothesCount: Int = 0) {
         users += user
         clothesCountByUserId[user.userId] = clothesCount
+    }
+
+    fun seedUserWithoutEmail(userWithClothesCount: UserWithClothesCount) {
+        legacyUsersWithoutEmail += userWithClothesCount
     }
 
     override suspend fun register(user: User, provisionedByAdmin: Boolean): User? {
@@ -36,7 +42,7 @@ class InMemoryUserRepository : UserRepository {
     }
 
     override suspend fun findAllWithClothesCount(): List<UserWithClothesCount> =
-        users.map { UserWithClothesCount(it, clothesCountByUserId[it.userId] ?: 0) }
+        users.map { it.withClothesCount(clothesCountByUserId[it.userId] ?: 0) } + legacyUsersWithoutEmail
 
     override suspend fun findUserByUsername(userName: String): User? = users.firstOrNull { it.username == userName }
     override suspend fun findUserByEmail(email: String): User? = users.firstOrNull { it.email == email }

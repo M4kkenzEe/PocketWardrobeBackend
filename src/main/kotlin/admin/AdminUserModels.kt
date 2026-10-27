@@ -1,7 +1,7 @@
 package com.example.admin
 
-import com.example.database.data.model.isProActive
 import com.example.database.domain.model.UserWithClothesCount
+import com.example.database.domain.model.isProActive
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -13,16 +13,16 @@ data class AdminCreateUserRequest(
 @Serializable
 data class AdminUserResponse(
     val id: Int,
-    val email: String,
+    val email: String?,
     val createdAt: String?,
     val isPro: Boolean,
     val clothesCount: Int
 )
 
 fun UserWithClothesCount.toAdminResponse() = AdminUserResponse(
-    id = user.userId,
-    email = user.email,
-    createdAt = user.createdAt?.toString(),
-    isPro = user.isProActive(),
+    id = userId,
+    email = email,
+    createdAt = createdAt?.toString(),
+    isPro = isProActive(),
     clothesCount = clothesCount
 )

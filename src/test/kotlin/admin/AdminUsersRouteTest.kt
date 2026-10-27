@@ -1,6 +1,7 @@
 package com.example.admin
 
 import com.example.database.data.model.User
+import com.example.database.domain.model.UserWithClothesCount
 import com.example.testutils.FakeEmailService
 import com.example.testutils.InMemoryUserRepository
 import com.example.testutils.testAdminModule
@@ -127,6 +128,33 @@ class AdminUsersRouteTest {
         assertEquals(JsonNull, legacy.getValue("createdAt"))
         assertFalse(legacy.getValue("isPro").jsonPrimitive.boolean)
         assertEquals(3, legacy.getValue("clothesCount").jsonPrimitive.int)
+    }
+
+    @Test
+    fun `GET returns legacy user with null email as null in json`() = testApplication {
+        val userRepo = InMemoryUserRepository()
+        userRepo.seedUserWithoutEmail(
+            UserWithClothesCount(
+                userId = 7,
+                email = null,
+                createdAt = null,
+                isPro = false,
+                proUntil = null,
+                clothesCount = 2
+            )
+        )
+        userRepo.seed(legacyUser(1, "old@example.com"))
+        setUp(userRepo)
+
+        val response = client.get("/admin/users") { header("X-Admin-Secret", secret) }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val users = response.json().jsonArray
+        assertEquals(2, users.size)
+        val withoutEmail = users[1].jsonObject
+        assertEquals(7, withoutEmail.getValue("id").jsonPrimitive.int)
+        assertEquals(JsonNull, withoutEmail.getValue("email"))
+        assertEquals(2, withoutEmail.getValue("clothesCount").jsonPrimitive.int)
     }
 
     @Test

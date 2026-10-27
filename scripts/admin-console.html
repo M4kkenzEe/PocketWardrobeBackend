@@ -261,7 +261,7 @@ function createBadgeCell(isPro) {
 function createUserRow(user) {
   const row = document.createElement("tr");
   row.appendChild(createCell("id", String(user.id)));
-  row.appendChild(createCell("", user.email));
+  row.appendChild(createCell("", user.email || "—"));
   row.appendChild(createCell("date", formatDate(user.createdAt)));
   row.appendChild(createBadgeCell(user.isPro));
   row.appendChild(createCell("count", String(user.clothesCount)));

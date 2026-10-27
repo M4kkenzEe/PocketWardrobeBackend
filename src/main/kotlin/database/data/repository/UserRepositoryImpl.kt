@@ -55,7 +55,12 @@ class UserRepositoryImpl : UserRepository {
             .orderBy(UserTable.id)
             .map { row ->
                 UserWithClothesCount(
-                    user = daoToModel(UserDao.wrapRow(row)),
+                    userId = row[UserTable.id].value,
+                    // Prod schema has legacy NULL emails, but UserTable declares email non-null.
+                    email = row.getOrNull(UserTable.email),
+                    createdAt = row[UserTable.createdAt],
+                    isPro = row[UserTable.isPro],
+                    proUntil = row[UserTable.proUntil],
                     clothesCount = row[clothesCount].toInt()
                 )
             }

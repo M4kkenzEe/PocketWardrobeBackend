@@ -2,6 +2,7 @@ package com.example.usecases
 
 import com.example.database.data.model.User
 import com.example.database.domain.model.UserWithClothesCount
+import com.example.database.domain.model.withClothesCount
 import com.example.database.domain.repository.UserRepository
 import validation.AuthValidator
 
@@ -17,6 +18,6 @@ class AdminUserUseCase(private val userRepository: UserRepository) {
             provisionedByAdmin = true
         ) ?: throw IllegalStateException("User with this username or email already exists")
 
-        return UserWithClothesCount(user = createdUser, clothesCount = 0)
+        return createdUser.withClothesCount(clothesCount = 0)
     }
 }
