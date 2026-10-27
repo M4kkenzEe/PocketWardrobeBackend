@@ -7,8 +7,6 @@ import com.example.services.EmailService
 import org.slf4j.LoggerFactory
 import java.security.MessageDigest
 
-class EmailNotVerifiedException : Exception("Email address is not verified")
-
 data class ResendVerificationCooldownException(val retryAfterSeconds: Int) :
     Exception("Please wait $retryAfterSeconds seconds before requesting a new code")
 
