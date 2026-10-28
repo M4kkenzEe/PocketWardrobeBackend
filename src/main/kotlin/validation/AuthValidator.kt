@@ -43,13 +43,6 @@ object AuthValidator {
         require(password.isNotBlank()) { "Password is required" }
     }
 
-    fun validatePasswordResetRequest(email: String, code: String, newPassword: String) {
-        require(email.isNotBlank()) { "Email is required" }
-        require(EMAIL_REGEX.matches(email)) { "Invalid email format" }
-        require(code.length == 6 && code.all { it.isDigit() }) { "Code must be 6 digits" }
-        validateNewPassword(newPassword)
-    }
-
     fun validateNewPassword(password: String) {
         require(password.length >= 8) { "Password must be at least 8 characters" }
         require(password.length <= 128) { "Password must be at most 128 characters" }

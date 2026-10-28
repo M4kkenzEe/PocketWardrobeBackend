@@ -20,6 +20,7 @@ import com.example.services.RemoveBgService
 import com.example.usecases.AdminUserUseCase
 import com.example.usecases.ClotheUseCase
 import com.example.usecases.EmailVerificationUseCase
+import com.example.usecases.PasswordResetUseCase
 import com.example.usecases.RegistrationUseCase
 import io.ktor.client.engine.cio.*
 import io.ktor.http.*
@@ -163,6 +164,13 @@ fun Application.testAuthModule(
                 RegistrationUseCase(
                     pendingEmailVerificationRepository = pendingEmailVerificationRepo,
                     userRepository = userRepo,
+                    emailService = emailService
+                )
+            }
+            single {
+                PasswordResetUseCase(
+                    userRepository = userRepo,
+                    passwordResetRepository = passwordResetRepo,
                     emailService = emailService
                 )
             }

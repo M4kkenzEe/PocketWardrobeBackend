@@ -22,13 +22,9 @@ class PasswordResetRepositoryImpl : PasswordResetRepository {
         dao.toModel()
     }
 
-    override suspend fun findValidCode(userId: Int, code: String): PasswordResetCode? = suspendTransaction {
-        val now = System.currentTimeMillis()
+    override suspend fun findCode(userId: Int, code: String): PasswordResetCode? = suspendTransaction {
         PasswordResetCodeDao.find {
-            (PasswordResetCodeTable.userId eq userId) and
-            (PasswordResetCodeTable.code eq code) and
-            (PasswordResetCodeTable.isUsed eq false) and
-            (PasswordResetCodeTable.expiresAt greater now)
+            (PasswordResetCodeTable.userId eq userId) and (PasswordResetCodeTable.code eq code)
         }.firstOrNull()?.toModel()
     }
 

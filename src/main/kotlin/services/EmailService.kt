@@ -35,13 +35,13 @@ open class EmailService {
     }
 
     open suspend fun sendPasswordResetCode(toEmail: String, code: String): Unit = withContext(Dispatchers.IO) {
-        log.info("Sending password reset code to $toEmail")
+        log.info("Sending password reset code")
         sendHtmlEmail(
             toEmail = toEmail,
             subject = "Код восстановления Clothis",
             html = buildPasswordResetHtml(code)
         )
-        log.info("Password reset code sent to $toEmail")
+        log.info("Password reset code sent")
     }
 
     open suspend fun sendEmailVerificationCode(toEmail: String, code: String): Unit = withContext(Dispatchers.IO) {

@@ -4,6 +4,7 @@ import com.example.usecases.AdminUserUseCase
 import com.example.usecases.ClotheUseCase
 import com.example.usecases.EmailVerificationUseCase
 import com.example.usecases.GenerateLookUseCase
+import com.example.usecases.PasswordResetUseCase
 import com.example.usecases.QuotaUseCase
 import com.example.usecases.RegistrationUseCase
 import org.koin.dsl.module
@@ -47,4 +48,5 @@ val databaseModule = module {
     single { AdminUserUseCase(userRepository = get()) }
     single { EmailVerificationUseCase(emailVerificationRepository = get(), userRepository = get(), emailService = get()) }
     single { RegistrationUseCase(pendingEmailVerificationRepository = get(), userRepository = get(), emailService = get()) }
+    single { PasswordResetUseCase(userRepository = get(), passwordResetRepository = get(), emailService = get()) }
 }

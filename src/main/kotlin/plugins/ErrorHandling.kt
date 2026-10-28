@@ -1,6 +1,7 @@
 package plugins
 
 import com.example.usecases.FreemiumLimitException
+import com.example.usecases.PasswordResetException
 import com.example.usecases.ResendVerificationCooldownException
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -46,6 +47,15 @@ fun Application.configureErrorHandling() {
                     error = "TooManyRequests",
                     message = "Please wait ${cause.retryAfterSeconds} seconds before requesting a new code"
                 )
+            )
+        }
+
+        // Logged so a rejected reset can be diagnosed from prod logs; email and code stay out of them.
+        exception<PasswordResetException> { call, cause ->
+            call.application.log.warn("Password reset rejected: ${cause.reason}")
+            call.respond(
+                HttpStatusCode.BadRequest,
+                ErrorResponse(error = cause.reason.name, message = cause.message.orEmpty())
             )
         }
 

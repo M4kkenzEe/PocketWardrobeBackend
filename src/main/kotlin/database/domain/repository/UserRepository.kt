@@ -13,6 +13,12 @@ interface UserRepository {
     suspend fun findAllWithClothesCount(): List<UserWithClothesCount>
     suspend fun findUserByUsername(userName: String): User?
     suspend fun findUserByEmail(email: String): User?
+
+    /**
+     * Mailboxes are case-insensitive in practice. If legacy rows differ only by case, the oldest account wins
+     * so repeated calls resolve the same user; callers should try [findUserByEmail] first.
+     */
+    suspend fun findUserByEmailIgnoreCase(email: String): User?
     suspend fun findUserById(userId: Int): User?
     suspend fun authenticate(username: String, password: String): User?
     suspend fun updatePassword(userId: Int, newPasswordHash: String)

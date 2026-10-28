@@ -12,15 +12,18 @@ import org.slf4j.event.Level
 private val callStartTimeKey = AttributeKey<Long>("CallStartTime")
 private val requestBodyKey = AttributeKey<String>("RequestBody")
 
+/** Bodies of these requests carry passwords, one-time codes or tokens and must never reach the logs. */
+internal fun isSensitivePath(path: String): Boolean =
+    path.contains("/login") || path.contains("/register") || path.contains("/refresh") ||
+        path.contains("/logout") || path.contains("/auth/") || path.startsWith("/admin/")
+
 fun Application.configureLogging() {
     install(DoubleReceive)
 
     // Capture request body in suspend context, store in attribute for later use in format lambda
     intercept(ApplicationCallPipeline.Monitoring) {
         val path = call.request.path()
-        val isAuthPath = path.contains("/login") || path.contains("/register") ||
-                path.contains("/refresh") || path.contains("/logout") || path.startsWith("/admin/")
-        if (!isAuthPath && call.request.contentType().match(ContentType.Application.Json)) {
+        if (!isSensitivePath(path) && call.request.contentType().match(ContentType.Application.Json)) {
             val body = runCatching { call.receiveText().take(500) }.getOrNull()
             if (!body.isNullOrBlank()) {
                 call.attributes.put(requestBodyKey, body)

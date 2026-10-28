@@ -305,6 +305,7 @@ class FakeUserRepository(
     override suspend fun findAllWithClothesCount(): List<UserWithClothesCount> = emptyList()
     override suspend fun findUserByUsername(userName: String): User? = null
     override suspend fun findUserByEmail(email: String): User? = emailUser
+    override suspend fun findUserByEmailIgnoreCase(email: String): User? = emailUser
     override suspend fun findUserById(userId: Int): User =
         User(userId = userId, username = "testuser", email = "test@test.com", passwordHash = "", gender = null, isPro = isPro, emailVerified = emailVerifiedState)
     override suspend fun authenticate(username: String, password: String): User? = null

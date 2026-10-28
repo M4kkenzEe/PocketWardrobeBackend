@@ -11,14 +11,12 @@ import com.example.auth.model.VerifyRegistrationResponse
 import com.example.auth.model.ResetPasswordRequest
 import com.example.auth.model.UserPrincipal
 import com.example.auth.model.VerifyEmailRequest
-import org.mindrot.jbcrypt.BCrypt
 import com.example.auth.service.JWTConfig
 import com.example.database.data.model.User
-import com.example.database.domain.repository.PasswordResetRepository
 import com.example.database.domain.repository.RevokedTokenRepository
 import com.example.database.domain.repository.UserRepository
-import com.example.services.EmailService
 import com.example.usecases.EmailVerificationUseCase
+import com.example.usecases.PasswordResetUseCase
 import com.example.usecases.RegistrationUseCase
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -37,10 +35,9 @@ import java.util.UUID
 fun Application.configureRouting() {
     val userService: UserRepository by inject()
     val revokedTokenRepository: RevokedTokenRepository by inject()
-    val passwordResetRepository: PasswordResetRepository by inject()
+    val passwordResetUseCase: PasswordResetUseCase by inject()
     val emailVerificationUseCase: EmailVerificationUseCase by inject()
     val registrationUseCase: RegistrationUseCase by inject()
-    val emailService: EmailService by inject()
 
     routing {
         // Root endpoint (no versioning)
@@ -211,72 +208,30 @@ fun Application.configureRouting() {
                 post("/auth/reset-password") {
                     val request = call.receive<ResetPasswordRequest>()
 
-                    AuthValidator.validatePasswordResetRequest(
-                        email = request.email,
-                        code = request.code,
-                        newPassword = request.newPassword
-                    )
+                    val user = passwordResetUseCase.resetPassword(request.email, request.code, request.newPassword)
 
-                    val user = userService.findUserByEmail(request.email)
-                    if (user == null) {
-                        call.respond(HttpStatusCode.BadRequest, ErrorResponse(
-                            error = "BadRequest",
-                            message = "Invalid code or email"
-                        ))
-                        return@post
-                    }
-
-                    val resetCode = passwordResetRepository.findValidCode(user.userId, request.code)
-                    if (resetCode == null) {
-                        call.respond(HttpStatusCode.BadRequest, ErrorResponse(
-                            error = "BadRequest",
-                            message = "Invalid or expired code"
-                        ))
-                        return@post
-                    }
-
-                    val newHash = BCrypt.hashpw(request.newPassword, BCrypt.gensalt())
-                    userService.updatePassword(user.userId, newHash)
-                    userService.incrementTokenVersion(user.userId)
-                    passwordResetRepository.markUsed(resetCode.id)
-                    passwordResetRepository.deleteUserCodes(user.userId)
-
-                    val updatedUser = userService.findUserById(user.userId)!!
-                    val tokens = JWTConfig.generateTokenPair(updatedUser)
+                    val tokens = JWTConfig.generateTokenPair(user)
                     call.respond(HttpStatusCode.OK, LoginResponse(
                         accessToken = tokens.accessToken,
                         refreshToken = tokens.refreshToken,
                         expiresAt = tokens.expiresAt,
-                        userId = updatedUser.userId
+                        userId = user.userId
                     ))
                 }
 
                 post("/auth/forgot-password") {
                     val request = call.receive<ForgotPasswordRequest>()
-                    val genericMessage = mapOf("message" to "Если email зарегистрирован, письмо отправлено")
-
-                    passwordResetRepository.deleteExpiredCodes()
-
-                    val user = userService.findUserByEmail(request.email)
-                    if (user == null) {
-                        call.respond(HttpStatusCode.OK, genericMessage)
-                        return@post
-                    }
-
-                    val code = (100000..999999).random().toString()
-                    passwordResetRepository.deleteUserCodes(user.userId)
-                    passwordResetRepository.createCode(user.userId, code)
 
                     try {
-                        emailService.sendPasswordResetCode(request.email, code)
-                        call.respond(HttpStatusCode.OK, genericMessage)
+                        passwordResetUseCase.requestCode(request.email)
                     } catch (e: Exception) {
-                        log.error("Failed to send password reset email to ${request.email}", e)
-                        call.respond(HttpStatusCode.InternalServerError, ErrorResponse(
+                        log.error("Password reset request failed", e)
+                        return@post call.respond(HttpStatusCode.InternalServerError, ErrorResponse(
                             error = "EmailError",
                             message = "Не удалось отправить письмо"
                         ))
                     }
+                    call.respond(HttpStatusCode.OK, mapOf("message" to "Если email зарегистрирован, письмо отправлено"))
                 }
             }
 

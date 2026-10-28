@@ -29,12 +29,8 @@ class FakePasswordResetRepository : PasswordResetRepository {
         return newCode
     }
 
-    override suspend fun findValidCode(userId: Int, code: String): PasswordResetCode? {
-        val now = System.currentTimeMillis()
-        return codes.firstOrNull {
-            it.userId == userId && it.code == code && !it.isUsed && it.expiresAt > now
-        }
-    }
+    override suspend fun findCode(userId: Int, code: String): PasswordResetCode? =
+        codes.firstOrNull { it.userId == userId && it.code == code }
 
     override suspend fun markUsed(id: Int) {
         val index = codes.indexOfFirst { it.id == id }

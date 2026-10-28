@@ -48,17 +48,29 @@ class InMemoryUserRepository : UserRepository {
 
     override suspend fun findUserByUsername(userName: String): User? = users.firstOrNull { it.username == userName }
     override suspend fun findUserByEmail(email: String): User? = users.firstOrNull { it.email == email }
+    override suspend fun findUserByEmailIgnoreCase(email: String): User? =
+        users.filter { it.email.equals(email, ignoreCase = true) }.minByOrNull { it.userId }
     override suspend fun findUserById(userId: Int): User? = users.firstOrNull { it.userId == userId }
 
     override suspend fun authenticate(username: String, password: String): User? =
         users.firstOrNull { it.username == username || it.email == username }
             ?.takeIf { BCrypt.checkpw(password, it.passwordHash) }
 
-    override suspend fun updatePassword(userId: Int, newPasswordHash: String) = Unit
-    override suspend fun incrementTokenVersion(userId: Int) = Unit
+    override suspend fun updatePassword(userId: Int, newPasswordHash: String) {
+        updateUser(userId) { it.copy(passwordHash = newPasswordHash) }
+    }
+
+    override suspend fun incrementTokenVersion(userId: Int) {
+        updateUser(userId) { it.copy(tokenVersion = it.tokenVersion + 1) }
+    }
+
     override suspend fun setEmailVerified(userId: Int) {
         setEmailVerifiedCalls++
+        updateUser(userId) { it.copy(emailVerified = true) }
+    }
+
+    private fun updateUser(userId: Int, change: (User) -> User) {
         val index = users.indexOfFirst { it.userId == userId }
-        if (index >= 0) users[index] = users[index].copy(emailVerified = true)
+        if (index >= 0) users[index] = change(users[index])
     }
 }

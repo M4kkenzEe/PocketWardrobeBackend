@@ -11,7 +11,9 @@ import com.example.database.suspendTransaction
 import kotlinx.datetime.Clock
 import kotlin.time.Duration.Companion.days
 import org.jetbrains.exposed.v1.core.JoinType
+import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.count
+import org.jetbrains.exposed.v1.core.lowerCase
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.select
 import org.mindrot.jbcrypt.BCrypt
@@ -74,6 +76,13 @@ class UserRepositoryImpl : UserRepository {
 
     override suspend fun findUserByEmail(email: String): User? = suspendTransaction {
         UserDao.find { UserTable.email eq email }
+            .firstOrNull()
+            ?.let { daoToModel(it) }
+    }
+
+    override suspend fun findUserByEmailIgnoreCase(email: String): User? = suspendTransaction {
+        UserDao.find { UserTable.email.lowerCase() eq email.lowercase() }
+            .orderBy(UserTable.id to SortOrder.ASC)
             .firstOrNull()
             ?.let { daoToModel(it) }
     }

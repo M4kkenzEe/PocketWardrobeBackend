@@ -10,10 +10,8 @@ import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.testing.*
-import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class PasswordResetOtpCleanupTest {
@@ -78,26 +76,5 @@ class PasswordResetOtpCleanupTest {
             repo.getCodes().none { it.expiresAt <= System.currentTimeMillis() },
             "No expired codes should remain in the repository after forgot-password"
         )
-    }
-
-    @Test
-    fun `findValidCode возвращает null для expired кода`() = runTest {
-        val repo = FakePasswordResetRepository()
-        val now = System.currentTimeMillis()
-
-        repo.addCode(
-            PasswordResetCode(
-                id = 1,
-                userId = 1,
-                code = "999999",
-                expiresAt = now - 1L,
-                isUsed = false,
-                createdAt = now - 1_000L
-            )
-        )
-
-        val result = repo.findValidCode(userId = 1, code = "999999")
-
-        assertNull(result, "Expired code must not be returned as valid by findValidCode")
     }
 }
