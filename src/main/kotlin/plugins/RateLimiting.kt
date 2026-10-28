@@ -21,13 +21,7 @@ fun Application.configureRateLimiting() {
     install(RateLimit) {
         // 1. Rate limit for authentication endpoints (login, register)
         // Most strict - IP-based to prevent brute force attacks
-        register(RateLimitName("auth")) {
-            rateLimiter(limit = EnvironmentConfig.rateLimitAuth, refillPeriod = 1.minutes)
-            requestKey { call ->
-                // Use client IP as the key (origin honors X-Forwarded-For behind nginx)
-                call.request.origin.remoteHost
-            }
-        }
+        registerAuthRateLimit(EnvironmentConfig.rateLimitAuth)
 
         // 2. Rate limit for file upload endpoints
         // Moderate - prevents abuse of file storage
@@ -79,3 +73,12 @@ fun Application.configureRateLimiting() {
 }
 
 // No need for helper objects - RateLimitName is already available from Ktor
+
+/** IP-based bucket for auth endpoints. Separate from [configureRateLimiting] so tests can hit it with a small limit. */
+fun RateLimitConfig.registerAuthRateLimit(limit: Int) {
+    register(RateLimitName("auth")) {
+        rateLimiter(limit = limit, refillPeriod = 1.minutes)
+        // The client IP as resolved by configureForwardedHeaders (last X-Forwarded-For value behind nginx).
+        requestKey { call -> call.request.origin.remoteHost }
+    }
+}

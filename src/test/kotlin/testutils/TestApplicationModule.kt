@@ -37,6 +37,8 @@ import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
 import plugins.ErrorResponse
 import plugins.configureErrorHandling
+import plugins.configureForwardedHeaders
+import plugins.registerAuthRateLimit
 import kotlin.time.Duration.Companion.minutes
 import io.ktor.client.HttpClient as KtorHttpClient
 
@@ -122,6 +124,7 @@ fun Application.testClothesModule(
  * Test module for auth routes. Calls the production [configureRouting] so tests
  * cover the real handler, not a copy of it. EmailService is faked so tests never
  * open an SMTP connection, even when .env carries real SMTP credentials.
+ * Forwarded headers and the auth bucket key are the production ones; only [authRateLimit] differs.
  *
  * Requires: .env with JWT_SECRET, DB_URL, DB_USER, DB_PASSWORD, DB_NAME,
  * REMOVE_BG_SERVICE_URL, ANALYSIS_SERVICE_URL (same requirement as ConfigValidatorTest).
@@ -132,18 +135,18 @@ fun Application.testAuthModule(
     revokedTokenRepo: RevokedTokenRepository = FakeRevokedTokenRepository(),
     emailService: EmailService = FakeEmailService(),
     emailVerificationRepo: EmailVerificationRepository = FakeEmailVerificationRepository(),
-    pendingEmailVerificationRepo: PendingEmailVerificationRepository = FakePendingEmailVerificationRepository()
+    pendingEmailVerificationRepo: PendingEmailVerificationRepository = FakePendingEmailVerificationRepository(),
+    authRateLimit: Int = 10_000
 ) {
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true })
     }
 
     configureErrorHandling()
+    configureForwardedHeaders()
 
     install(RateLimit) {
-        register(RateLimitName("auth")) {
-            rateLimiter(limit = 10_000, refillPeriod = 1.minutes)
-        }
+        registerAuthRateLimit(authRateLimit)
         register(RateLimitName("default")) {
             rateLimiter(limit = 10_000, refillPeriod = 1.minutes)
         }
