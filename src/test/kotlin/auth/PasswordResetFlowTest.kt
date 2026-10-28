@@ -7,6 +7,7 @@ import com.example.testutils.FakePasswordResetRepository
 import com.example.testutils.InMemoryUserRepository
 import com.example.testutils.assertSessionResponse
 import com.example.testutils.bodyJson
+import com.example.testutils.postJson
 import com.example.testutils.testAuthModule
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -34,12 +35,6 @@ class PasswordResetFlowTest {
     private fun ApplicationTestBuilder.module() = application {
         testAuthModule(passwordResetRepo = resetRepo, userRepo = userRepo, emailService = emailService)
     }
-
-    private suspend fun ApplicationTestBuilder.postJson(path: String, body: String): HttpResponse =
-        client.post("/api/v1$path") {
-            contentType(ContentType.Application.Json)
-            setBody(body)
-        }
 
     private suspend fun ApplicationTestBuilder.forgot(email: String = storedEmail) =
         postJson("/auth/forgot-password", """{"email":"$email"}""")

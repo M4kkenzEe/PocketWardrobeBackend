@@ -61,7 +61,7 @@ class PasswordResetUseCase(
     }
 
     // Legacy rows may differ only by letter case: the exact address must win, or the younger
-    // account's owner would reset (and get a session for) the older one.
+    // account's owner would reset the older one.
     private suspend fun findAccount(email: String): User? {
         val trimmedEmail = email.trim()
         return userRepository.findUserByEmail(trimmedEmail) ?: userRepository.findUserByEmailIgnoreCase(trimmedEmail)
