@@ -5,11 +5,13 @@ import com.example.usecases.ClotheUseCase
 import com.example.usecases.EmailVerificationUseCase
 import com.example.usecases.GenerateLookUseCase
 import com.example.usecases.QuotaUseCase
+import com.example.usecases.RegistrationUseCase
 import org.koin.dsl.module
 import com.example.database.data.repository.ClotheRepositoryImpl
 import com.example.database.data.repository.DailyQuotaRepositoryImpl
 import com.example.database.data.repository.EmailVerificationRepositoryImpl
 import com.example.database.data.repository.PasswordResetRepositoryImpl
+import com.example.database.data.repository.PendingEmailVerificationRepositoryImpl
 import com.example.database.data.repository.SharedLookRepositoryImpl
 import com.example.database.data.repository.UserClotheRepositoryImpl
 import com.example.database.data.repository.UserLookRepositoryImpl
@@ -19,6 +21,7 @@ import com.example.database.domain.repository.DailyQuotaRepository
 import com.example.database.domain.repository.EmailVerificationRepository
 import com.example.database.domain.repository.LookRepository
 import com.example.database.domain.repository.PasswordResetRepository
+import com.example.database.domain.repository.PendingEmailVerificationRepository
 import com.example.database.domain.repository.SharedLookRepository
 import com.example.database.domain.repository.UserClotheRepository
 import com.example.database.domain.repository.UserLookRepository
@@ -36,10 +39,12 @@ val databaseModule = module {
     factory<DailyQuotaRepository> { DailyQuotaRepositoryImpl() }
     factory<PasswordResetRepository> { PasswordResetRepositoryImpl() }
     factory<EmailVerificationRepository> { EmailVerificationRepositoryImpl() }
+    factory<PendingEmailVerificationRepository> { PendingEmailVerificationRepositoryImpl() }
     single { ClotheUseCase(lookRepository = get()) }
     single { ImportSharedLookUseCase(sharedLookRepository = get(), clotheRepository = get(), lookRepository = get(), userClotheRepository = get(), userRepository = get()) }
     single { GenerateLookUseCase(generateLookService = get(), lookRepository = get()) }
     single { QuotaUseCase(userRepository = get()) }
     single { AdminUserUseCase(userRepository = get()) }
     single { EmailVerificationUseCase(emailVerificationRepository = get(), userRepository = get(), emailService = get()) }
+    single { RegistrationUseCase(pendingEmailVerificationRepository = get(), userRepository = get(), emailService = get()) }
 }

@@ -7,6 +7,7 @@ interface UserRepository {
     /**
      * [provisionedByAdmin] skips the registration trial and creates the account already verified,
      * so accounts made through the admin API need no verification email.
+     * A [user] passed with emailVerified = true is also created verified, but keeps the registration trial.
      */
     suspend fun register(user: User, provisionedByAdmin: Boolean = false): User?
     suspend fun findAllWithClothesCount(): List<UserWithClothesCount>

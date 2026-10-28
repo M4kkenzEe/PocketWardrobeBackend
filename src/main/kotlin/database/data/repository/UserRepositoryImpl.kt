@@ -35,7 +35,7 @@ class UserRepositoryImpl : UserRepository {
             gender = user.gender
             isPro = !provisionedByAdmin
             proUntil = if (provisionedByAdmin) null else now.plus(30.days)
-            emailVerified = provisionedByAdmin
+            emailVerified = provisionedByAdmin || user.emailVerified
             createdAt = now
         }.let { daoToModel(it) }
     }

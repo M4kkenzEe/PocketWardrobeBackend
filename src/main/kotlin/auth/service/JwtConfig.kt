@@ -10,6 +10,9 @@ import java.util.UUID
 
 data class TokenPair(val accessToken: String, val refreshToken: String, val expiresAt: Long)
 
+private const val REGISTRATION_PURPOSE = "registration"
+private const val REGISTRATION_TOKEN_VALIDITY_MS = 30 * 60_000L
+
 object JWTConfig {
     private val secret = EnvironmentConfig.jwtSecret
     private val issuer = EnvironmentConfig.jwtIssuer
@@ -53,6 +56,37 @@ object JWTConfig {
                 .build()
                 .verify(token)
             decoded
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Proof that [email] passed the registration OTP. Carries type=registration, so [verifier]
+     * (type=access) and [verifyRefreshToken] (type=refresh) both reject it: it opens nothing but /register.
+     */
+    fun generateRegistrationToken(email: String): String = JWT.create()
+        .withAudience(audience)
+        .withIssuer(issuer)
+        .withClaim("email", email)
+        .withClaim("purpose", REGISTRATION_PURPOSE)
+        .withClaim("type", REGISTRATION_PURPOSE)
+        .withExpiresAt(Date(System.currentTimeMillis() + REGISTRATION_TOKEN_VALIDITY_MS))
+        .withJWTId(UUID.randomUUID().toString())
+        .sign(algorithm)
+
+    /** Returns the verified email, or null if the token is not a valid, unexpired registration token. */
+    fun verifyRegistrationToken(token: String): String? {
+        return try {
+            JWT.require(algorithm)
+                .withAudience(audience)
+                .withIssuer(issuer)
+                .withClaim("type", REGISTRATION_PURPOSE)
+                .withClaim("purpose", REGISTRATION_PURPOSE)
+                .build()
+                .verify(token)
+                .getClaim("email")
+                .asString()
         } catch (_: Exception) {
             null
         }

@@ -7,6 +7,7 @@ import com.example.database.data.model.EmailVerificationCodeTable
 import com.example.database.data.model.LookItemTable
 import com.example.database.data.model.LookTable
 import com.example.database.data.model.PasswordResetCodeTable
+import com.example.database.data.model.PendingEmailVerificationTable
 import com.example.database.data.model.RevokedTokenTable
 import com.example.database.data.model.SharedLookTable
 import com.example.database.data.model.UserClotheTable
@@ -71,7 +72,8 @@ fun Application.configureDatabase() {
             RevokedTokenTable,
             DailyQuotaTable,
             PasswordResetCodeTable,
-            EmailVerificationCodeTable
+            EmailVerificationCodeTable,
+            PendingEmailVerificationTable
         )
         // Add new columns to existing tables (safe, idempotent)
         exec("ALTER TABLE looks ADD COLUMN IF NOT EXISTS generated_by_ai BOOLEAN DEFAULT FALSE NOT NULL")

@@ -14,6 +14,8 @@ import kotlin.time.Duration.Companion.days
  */
 class InMemoryUserRepository : UserRepository {
     private val users = mutableListOf<User>()
+    var setEmailVerifiedCalls = 0
+        private set
     private val clothesCountByUserId = mutableMapOf<Int, Int>()
     private val legacyUsersWithoutEmail = mutableListOf<UserWithClothesCount>()
 
@@ -34,7 +36,7 @@ class InMemoryUserRepository : UserRepository {
             passwordHash = BCrypt.hashpw(user.passwordHash, BCrypt.gensalt(4)),
             isPro = !provisionedByAdmin,
             proUntil = if (provisionedByAdmin) null else now.plus(30.days),
-            emailVerified = provisionedByAdmin,
+            emailVerified = provisionedByAdmin || user.emailVerified,
             createdAt = now
         )
         users += created
@@ -54,5 +56,9 @@ class InMemoryUserRepository : UserRepository {
 
     override suspend fun updatePassword(userId: Int, newPasswordHash: String) = Unit
     override suspend fun incrementTokenVersion(userId: Int) = Unit
-    override suspend fun setEmailVerified(userId: Int) = Unit
+    override suspend fun setEmailVerified(userId: Int) {
+        setEmailVerifiedCalls++
+        val index = users.indexOfFirst { it.userId == userId }
+        if (index >= 0) users[index] = users[index].copy(emailVerified = true)
+    }
 }

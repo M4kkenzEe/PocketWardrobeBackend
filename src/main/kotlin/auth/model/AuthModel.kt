@@ -7,7 +7,8 @@ data class RegisterRequest(
     val email: String,
     val password: String,
     val username: String? = null,
-    val gender: String? = null
+    val gender: String? = null,
+    val verificationToken: String? = null
 )
 
 @Serializable
@@ -46,4 +47,20 @@ data class ResetPasswordRequest(
 @Serializable
 data class VerifyEmailRequest(
     val code: String
+)
+
+@Serializable
+data class StartRegistrationRequest(
+    val email: String
+)
+
+@Serializable
+data class VerifyRegistrationRequest(
+    val email: String,
+    val code: String
+)
+
+@Serializable
+data class VerifyRegistrationResponse(
+    val verificationToken: String
 )

@@ -6,6 +6,7 @@ import com.example.auth.model.UserPrincipal
 import com.example.database.domain.repository.ClotheRepository
 import com.example.database.domain.repository.EmailVerificationRepository
 import com.example.database.domain.repository.PasswordResetRepository
+import com.example.database.domain.repository.PendingEmailVerificationRepository
 import com.example.database.domain.repository.RevokedTokenRepository
 import com.example.database.domain.repository.UserClotheRepository
 import com.example.database.domain.repository.UserRepository
@@ -19,6 +20,7 @@ import com.example.services.RemoveBgService
 import com.example.usecases.AdminUserUseCase
 import com.example.usecases.ClotheUseCase
 import com.example.usecases.EmailVerificationUseCase
+import com.example.usecases.RegistrationUseCase
 import io.ktor.client.engine.cio.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -128,7 +130,8 @@ fun Application.testAuthModule(
     userRepo: UserRepository = FakeUserRepository(),
     revokedTokenRepo: RevokedTokenRepository = FakeRevokedTokenRepository(),
     emailService: EmailService = FakeEmailService(),
-    emailVerificationRepo: EmailVerificationRepository = FakeEmailVerificationRepository()
+    emailVerificationRepo: EmailVerificationRepository = FakeEmailVerificationRepository(),
+    pendingEmailVerificationRepo: PendingEmailVerificationRepository = FakePendingEmailVerificationRepository()
 ) {
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true })
@@ -154,7 +157,15 @@ fun Application.testAuthModule(
             single<PasswordResetRepository> { passwordResetRepo }
             single<EmailService> { emailService }
             single<EmailVerificationRepository> { emailVerificationRepo }
+            single<PendingEmailVerificationRepository> { pendingEmailVerificationRepo }
             single { AdminUserUseCase(userRepository = userRepo) }
+            single {
+                RegistrationUseCase(
+                    pendingEmailVerificationRepository = pendingEmailVerificationRepo,
+                    userRepository = userRepo,
+                    emailService = emailService
+                )
+            }
             single {
                 EmailVerificationUseCase(
                     emailVerificationRepository = emailVerificationRepo,

@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Smoke-test: validates all critical PocketWardrobe API flows via curl.
 # Usage:
-#   ./scripts/smoke-test.sh                              # prod (api.clothis.tech)
-#   ./scripts/smoke-test.sh --url http://localhost:8080  # local
+#   ADMIN_SECRET=... ./scripts/smoke-test.sh                              # prod (api.clothis.tech)
+#   ADMIN_SECRET=... ./scripts/smoke-test.sh --url http://localhost:8080  # local
+#
+# ADMIN_SECRET must match the server's ADMIN_SECRET: /register now needs an email-verification
+# token that only a real mailbox can produce, so the test user is created through the admin API.
 
 set -euo pipefail
 
@@ -60,31 +63,41 @@ if [[ "$code" == "000" ]]; then
 fi
 check_status "GET /health" "200" "$code"
 
-# ── Register ─────────────────────────────────────────────────────────────────
-section "Auth / Register"
+# ── Register guard ───────────────────────────────────────────────────────────
+section "Auth / Register requires email verification"
 code=$(api -X POST "$BASE_URL/api/v1/register" \
   -H "Content-Type: application/json" \
   -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASS\"}")
-reg_json=$(cat "$TMPBODY")
-check_status "POST /register" "201" "$code"
-check_field "Register → accessToken" "accessToken" "$reg_json"
-check_field "Register → refreshToken" "refreshToken" "$reg_json"
+check_status "POST /register without verificationToken" "400" "$code"
 
-ACCESS_TOKEN=$(echo "$reg_json" | grep -o '"accessToken":"[^"]*"' | cut -d'"' -f4 || true)
-REFRESH_TOKEN=$(echo "$reg_json" | grep -o '"refreshToken":"[^"]*"' | cut -d'"' -f4 || true)
-
-if [[ -z "$ACCESS_TOKEN" ]]; then
-  fail "Cannot extract access token — skipping remaining checks"
-  FAIL=$((FAIL+5))
+# ── Test user (admin API) ────────────────────────────────────────────────────
+section "Test user via admin API"
+if [[ -z "${ADMIN_SECRET:-}" ]]; then
+  fail "ADMIN_SECRET is not set — cannot create the test user"
 else
+  code=$(api -X POST "$BASE_URL/admin/users" \
+    -H "Content-Type: application/json" \
+    -H "X-Admin-Secret: $ADMIN_SECRET" \
+    -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASS\"}")
+  check_status "POST /admin/users" "201" "$code"
+fi
 
 # ── Login ────────────────────────────────────────────────────────────────────
 section "Auth / Login"
 code=$(api -X POST "$BASE_URL/api/v1/login" \
   -H "Content-Type: application/json" \
   -d "{\"login\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASS\"}")
+login_json=$(cat "$TMPBODY")
 check_status "POST /login" "200" "$code"
-check_field "Login → accessToken" "accessToken" "$(cat "$TMPBODY")"
+check_field "Login → accessToken" "accessToken" "$login_json"
+
+ACCESS_TOKEN=$(echo "$login_json" | grep -o '"accessToken":"[^"]*"' | cut -d'"' -f4 || true)
+REFRESH_TOKEN=$(echo "$login_json" | grep -o '"refreshToken":"[^"]*"' | cut -d'"' -f4 || true)
+
+if [[ -z "$ACCESS_TOKEN" ]]; then
+  fail "Cannot extract access token — skipping remaining checks"
+  FAIL=$((FAIL+5))
+else
 
 # ── Authenticated endpoints ───────────────────────────────────────────────────
 section "Authenticated endpoints"

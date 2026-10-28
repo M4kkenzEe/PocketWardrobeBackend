@@ -5,6 +5,9 @@ import com.example.auth.model.LoginRequest
 import com.example.auth.model.LoginResponse
 import com.example.auth.model.RefreshRequest
 import com.example.auth.model.RegisterRequest
+import com.example.auth.model.StartRegistrationRequest
+import com.example.auth.model.VerifyRegistrationRequest
+import com.example.auth.model.VerifyRegistrationResponse
 import com.example.auth.model.ResetPasswordRequest
 import com.example.auth.model.UserPrincipal
 import com.example.auth.model.VerifyEmailRequest
@@ -16,6 +19,7 @@ import com.example.database.domain.repository.RevokedTokenRepository
 import com.example.database.domain.repository.UserRepository
 import com.example.services.EmailService
 import com.example.usecases.EmailVerificationUseCase
+import com.example.usecases.RegistrationUseCase
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -24,7 +28,6 @@ import io.ktor.server.plugins.ratelimit.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.coroutines.launch
 import org.koin.ktor.ext.inject
 import io.ktor.server.plugins.ratelimit.RateLimitName
 import plugins.ErrorResponse
@@ -36,6 +39,7 @@ fun Application.configureRouting() {
     val revokedTokenRepository: RevokedTokenRepository by inject()
     val passwordResetRepository: PasswordResetRepository by inject()
     val emailVerificationUseCase: EmailVerificationUseCase by inject()
+    val registrationUseCase: RegistrationUseCase by inject()
     val emailService: EmailService by inject()
 
     routing {
@@ -60,14 +64,15 @@ fun Application.configureRouting() {
 
                     val username = request.username ?: generateUsernameFromEmail(request.email)
 
-                    val user = userService.register(
-                        User(
+                    val user = registrationUseCase.register(
+                        user = User(
                             userId = 0,
                             username = username,
                             email = request.email,
                             passwordHash = request.password,
                             gender = request.gender?.uppercase()
-                        )
+                        ),
+                        verificationToken = request.verificationToken
                     )
                     if (user != null) {
                         val tokens = JWTConfig.generateTokenPair(user)
@@ -77,14 +82,31 @@ fun Application.configureRouting() {
                             expiresAt = tokens.expiresAt,
                             userId = user.userId
                         ))
-                        val registeredUser = user
-                        launch { emailVerificationUseCase.sendCode(registeredUser) }
                     } else {
                         call.respond(HttpStatusCode.Conflict, ErrorResponse(
                             error = "Conflict",
                             message = "User with this username or email already exists"
                         ))
                     }
+                }
+
+                post("/auth/registration/start") {
+                    val request = call.receive<StartRegistrationRequest>()
+                    AuthValidator.validateEmail(request.email)
+
+                    registrationUseCase.startVerification(request.email)
+
+                    call.respond(HttpStatusCode.OK, mapOf("message" to "Verification code sent"))
+                }
+
+                post("/auth/registration/verify") {
+                    val request = call.receive<VerifyRegistrationRequest>()
+                    AuthValidator.validateEmail(request.email)
+                    AuthValidator.validateVerificationCode(request.code)
+
+                    val verificationToken = registrationUseCase.verifyCode(request.email, request.code)
+
+                    call.respond(HttpStatusCode.OK, VerifyRegistrationResponse(verificationToken))
                 }
 
                 post("/login") {
