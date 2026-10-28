@@ -137,15 +137,10 @@ fun Application.configureRouting() {
                 post("/auth/reset-password") {
                     val request = call.receive<ResetPasswordRequest>()
 
-                    val user = passwordResetUseCase.resetPassword(request.email, request.code, request.newPassword)
+                    passwordResetUseCase.resetPassword(request.email, request.code, request.newPassword)
 
-                    val tokens = JWTConfig.generateTokenPair(user)
-                    call.respond(HttpStatusCode.OK, LoginResponse(
-                        accessToken = tokens.accessToken,
-                        refreshToken = tokens.refreshToken,
-                        expiresAt = tokens.expiresAt,
-                        userId = user.userId
-                    ))
+                    // No session here: the user signs in again with the new password.
+                    call.respond(HttpStatusCode.OK, mapOf("message" to "Пароль изменён. Войдите с новым паролем"))
                 }
 
                 post("/auth/forgot-password") {

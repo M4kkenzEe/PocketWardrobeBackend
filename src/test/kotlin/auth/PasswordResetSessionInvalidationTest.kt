@@ -33,6 +33,7 @@ class PasswordResetSessionInvalidationTest {
 
     private val victimEmail = "owner@example.com"
     private val oldPassword = "OldPass12"
+    private val newPassword = "NewPass12"
     private val userRepo = InMemoryUserRepository().apply {
         seed(User(userId = 1, username = "owner", email = victimEmail, passwordHash = BCrypt.hashpw(oldPassword, BCrypt.gensalt(4)), gender = null))
     }
@@ -66,12 +67,16 @@ class PasswordResetSessionInvalidationTest {
     private suspend fun ApplicationTestBuilder.refresh(refreshToken: String): HttpResponse =
         postJson("/refresh", """{"refreshToken":"$refreshToken"}""")
 
-    /** Runs the whole recovery flow and returns the refresh token of the session it opens. */
-    private suspend fun ApplicationTestBuilder.resetPassword(): String {
+    /** Runs the whole recovery flow. The reset itself opens no session: the caller signs in again. */
+    private suspend fun ApplicationTestBuilder.resetPassword() {
         postJson("/auth/forgot-password", """{"email":"$victimEmail"}""")
         val code = emailService.sentCodes().last().second
-        return refreshTokenOf(postJson("/auth/reset-password", """{"email":"$victimEmail","code":"$code","newPassword":"NewPass12"}"""))
+        val reset = postJson("/auth/reset-password", """{"email":"$victimEmail","code":"$code","newPassword":"$newPassword"}""")
+        assertEquals(HttpStatusCode.OK, reset.status, reset.bodyAsText())
     }
+
+    private suspend fun ApplicationTestBuilder.loginWithNewPassword(): String =
+        refreshTokenOf(postJson("/login", """{"login":"$victimEmail","password":"$newPassword"}"""))
 
     @Test
     fun `stolen refresh token from a real login is rejected after the password reset`() = testApplication {
@@ -95,13 +100,14 @@ class PasswordResetSessionInvalidationTest {
     }
 
     @Test
-    fun `session opened by the reset carries the new version and refreshes normally`() = testApplication {
+    fun `session opened by a login after the reset carries the new version and refreshes normally`() = testApplication {
         module()
+        resetPassword()
 
-        val fromReset = resetPassword()
+        val afterReset = loginWithNewPassword()
 
-        assertEquals(1L, JWT.decode(fromReset).getClaim("tokenVersion").asLong())
-        assertEquals(HttpStatusCode.OK, refresh(fromReset).status)
+        assertEquals(1L, JWT.decode(afterReset).getClaim("tokenVersion").asLong())
+        assertEquals(HttpStatusCode.OK, refresh(afterReset).status)
     }
 
     @Test
