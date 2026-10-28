@@ -49,8 +49,10 @@ class PasswordResetUseCase(
             throw PasswordResetException(PasswordResetFailure.CODE_EXPIRED, "Code has expired or was already used")
         }
 
-        userRepository.updatePassword(user.userId, BCrypt.hashpw(newPassword, BCrypt.gensalt()))
+        // Sessions are cut before the password changes: if the second write fails, the user is logged out
+        // with the old password still valid, never left with a new password and the thief's session alive.
         userRepository.incrementTokenVersion(user.userId)
+        userRepository.updatePassword(user.userId, BCrypt.hashpw(newPassword, BCrypt.gensalt()))
         passwordResetRepository.markUsed(resetCode.id)
         passwordResetRepository.deleteUserCodes(user.userId)
 

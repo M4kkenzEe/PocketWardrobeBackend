@@ -2,6 +2,7 @@ package com.example.auth
 
 import com.example.database.data.model.PasswordResetCode
 import com.example.database.data.model.User
+import com.example.database.domain.repository.UserRepository
 import com.example.testutils.FakeEmailService
 import com.example.testutils.FakePasswordResetRepository
 import com.example.testutils.InMemoryUserRepository
@@ -12,6 +13,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class PasswordResetUseCaseTest {
@@ -80,10 +82,11 @@ class PasswordResetUseCaseTest {
     }
 
     @Test
-    fun `used code is CODE_EXPIRED`() = runTest {
+    fun `used code is CODE_EXPIRED and leaves the account untouched`() = runTest {
         seedCode("123456", isUsed = true)
 
         assertEquals(PasswordResetFailure.CODE_EXPIRED, failureOf())
+        assertAccountUntouched()
     }
 
     @Test
@@ -113,5 +116,21 @@ class PasswordResetUseCaseTest {
 
         assertEquals(2, user.userId)
         assertEquals("old-hash", userRepo.findUserById(1)!!.passwordHash, "The older look-alike account must keep its password")
+    }
+
+    @Test
+    fun `failed password write leaves sessions already cut, old password and the code usable`() = runTest {
+        seedCode("123456")
+        val failingPasswordWrite = object : UserRepository by userRepo {
+            override suspend fun updatePassword(userId: Int, newPasswordHash: String) = error("DB down")
+        }
+        val resetWithFailingWrite = PasswordResetUseCase(failingPasswordWrite, resetRepo, emailService)
+
+        assertFailsWith<IllegalStateException> { resetWithFailingWrite.resetPassword("owner@example.com", "123456", "NewPass12") }
+
+        val user = userRepo.findUserById(1)!!
+        assertEquals(1L, user.tokenVersion, "Sessions must be cut before the password is written")
+        assertEquals("old-hash", user.passwordHash)
+        assertFalse(resetRepo.getCodes().single().isUsed, "The code must survive so the user can retry")
     }
 }

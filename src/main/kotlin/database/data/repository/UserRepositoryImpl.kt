@@ -12,10 +12,12 @@ import kotlinx.datetime.Clock
 import kotlin.time.Duration.Companion.days
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.plus
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.lowerCase
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.select
+import org.jetbrains.exposed.v1.jdbc.update
 import org.mindrot.jbcrypt.BCrypt
 
 class UserRepositoryImpl : UserRepository {
@@ -108,8 +110,11 @@ class UserRepositoryImpl : UserRepository {
         UserDao.findById(userId)?.passwordHash = newPasswordHash
     }
 
+    // One UPDATE instead of read-modify-write, so parallel resets cannot overwrite each other's increment.
     override suspend fun incrementTokenVersion(userId: Int): Unit = suspendTransaction {
-        UserDao.findById(userId)?.let { it.tokenVersion = it.tokenVersion + 1 }
+        UserTable.update({ UserTable.id eq userId }) {
+            it[tokenVersion] = tokenVersion + 1
+        }
     }
 
     override suspend fun setEmailVerified(userId: Int): Unit = suspendTransaction {

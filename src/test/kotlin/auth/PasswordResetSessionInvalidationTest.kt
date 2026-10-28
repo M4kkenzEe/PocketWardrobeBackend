@@ -2,142 +2,148 @@ package com.example.auth
 
 import com.example.auth.service.JWTConfig
 import com.example.database.data.model.User
-import com.example.database.domain.model.UserWithClothesCount
-import com.example.database.domain.repository.UserRepository
+import com.auth0.jwt.JWT
+import com.example.testutils.FakeEmailService
 import com.example.testutils.FakePasswordResetRepository
 import com.example.testutils.FakeRevokedTokenRepository
+import com.example.testutils.InMemoryUserRepository
+import com.example.testutils.TestJwtFactory
 import com.example.testutils.testAuthModule
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.testing.*
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import org.mindrot.jbcrypt.BCrypt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * Regression test for: refresh token issued before password reset must be rejected afterwards.
- *
- * VULNERABILITY: /reset-password updated the password hash but did not increment tokenVersion,
- * so any previously issued refresh token remained valid for up to 30 days.
- *
- * This test would have FAILED before the fix (old token was accepted) and PASSES after it.
+ * EPIC-20 threat model through the real routes: login → (theft) → forgot + reset → /refresh.
+ * Before the fix /reset-password changed the hash without bumping tokenVersion, so a stolen
+ * refresh token stayed valid for up to 30 days.
  */
 class PasswordResetSessionInvalidationTest {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    @Test
-    fun `refresh token issued before password reset is rejected after reset`() = testApplication {
-        var storedTokenVersion = 0L
+    private val victimEmail = "owner@example.com"
+    private val oldPassword = "OldPass12"
+    private val userRepo = InMemoryUserRepository().apply {
+        seed(User(userId = 1, username = "owner", email = victimEmail, passwordHash = BCrypt.hashpw(oldPassword, BCrypt.gensalt(4)), gender = null))
+    }
+    private val emailService = FakeEmailService()
 
-        val baseUser = User(
-            userId = 1,
-            username = "victim",
-            email = "victim@example.com",
-            passwordHash = "hash",
-            gender = null,
-            tokenVersion = storedTokenVersion
-        )
-
-        // Stateful repo — incrementTokenVersion actually changes the stored version
-        val statefulUserRepo = object : UserRepository {
-            override suspend fun findUserById(userId: Int) = baseUser.copy(tokenVersion = storedTokenVersion)
-            override suspend fun incrementTokenVersion(userId: Int) { storedTokenVersion++ }
-            override suspend fun register(user: User, provisionedByAdmin: Boolean): User? = null
-            override suspend fun findAllWithClothesCount(): List<UserWithClothesCount> = emptyList()
-            override suspend fun findUserByUsername(userName: String): User? = null
-            override suspend fun findUserByEmail(email: String): User? = null
-            override suspend fun findUserByEmailIgnoreCase(email: String): User? = null
-            override suspend fun authenticate(username: String, password: String): User? = null
-            override suspend fun updatePassword(userId: Int, newPasswordHash: String) {}
-            override suspend fun setEmailVerified(userId: Int) {}
-        }
-
-        application {
-            testAuthModule(
-                passwordResetRepo = FakePasswordResetRepository(),
-                userRepo = statefulUserRepo,
-                revokedTokenRepo = FakeRevokedTokenRepository()
-            )
-        }
-
-        // Old refresh token — carries tokenVersion = 0 (before password reset)
-        val oldRefreshToken = JWTConfig.generateTokenPair(baseUser.copy(tokenVersion = 0L)).refreshToken
-
-        // Simulate password reset: tokenVersion incremented to 1
-        statefulUserRepo.incrementTokenVersion(baseUser.userId)
-
-        val client = createClient {
-            install(ContentNegotiation) { json(json) }
-        }
-
-        val response = client.post("/api/v1/refresh") {
-            contentType(ContentType.Application.Json)
-            setBody("""{"refreshToken":"$oldRefreshToken"}""")
-        }
-
-        assertEquals(
-            HttpStatusCode.Unauthorized,
-            response.status,
-            "Refresh token issued before password reset must be rejected (401) after the password was reset"
+    private fun ApplicationTestBuilder.module() = application {
+        testAuthModule(
+            passwordResetRepo = FakePasswordResetRepository(),
+            userRepo = userRepo,
+            revokedTokenRepo = FakeRevokedTokenRepository(),
+            emailService = emailService
         )
     }
 
-    @Test
-    fun `refresh token issued after password reset is valid`() = testApplication {
-        var storedTokenVersion = 0L
-
-        val baseUser = User(
-            userId = 2,
-            username = "victim2",
-            email = "victim2@example.com",
-            passwordHash = "hash",
-            gender = null,
-            tokenVersion = storedTokenVersion
-        )
-
-        val statefulUserRepo = object : UserRepository {
-            override suspend fun findUserById(userId: Int) = baseUser.copy(tokenVersion = storedTokenVersion)
-            override suspend fun incrementTokenVersion(userId: Int) { storedTokenVersion++ }
-            override suspend fun register(user: User, provisionedByAdmin: Boolean): User? = null
-            override suspend fun findAllWithClothesCount(): List<UserWithClothesCount> = emptyList()
-            override suspend fun findUserByUsername(userName: String): User? = null
-            override suspend fun findUserByEmail(email: String): User? = null
-            override suspend fun findUserByEmailIgnoreCase(email: String): User? = null
-            override suspend fun authenticate(username: String, password: String): User? = null
-            override suspend fun updatePassword(userId: Int, newPasswordHash: String) {}
-            override suspend fun setEmailVerified(userId: Int) {}
-        }
-
-        application {
-            testAuthModule(
-                passwordResetRepo = FakePasswordResetRepository(),
-                userRepo = statefulUserRepo,
-                revokedTokenRepo = FakeRevokedTokenRepository()
-            )
-        }
-
-        // Simulate password reset
-        statefulUserRepo.incrementTokenVersion(baseUser.userId)
-
-        // New refresh token issued AFTER password reset — carries tokenVersion = 1
-        val newRefreshToken = JWTConfig.generateTokenPair(baseUser.copy(tokenVersion = storedTokenVersion)).refreshToken
-
-        val client = createClient {
-            install(ContentNegotiation) { json(json) }
-        }
-
-        val response = client.post("/api/v1/refresh") {
+    private suspend fun ApplicationTestBuilder.postJson(path: String, body: String): HttpResponse =
+        client.post("/api/v1$path") {
             contentType(ContentType.Application.Json)
-            setBody("""{"refreshToken":"$newRefreshToken"}""")
+            setBody(body)
         }
 
-        assertEquals(
-            HttpStatusCode.OK,
-            response.status,
-            "Refresh token issued after password reset must be accepted"
-        )
+    private suspend fun refreshTokenOf(response: HttpResponse): String {
+        val body = response.bodyAsText()
+        assertEquals(HttpStatusCode.OK, response.status, body)
+        return json.parseToJsonElement(body).jsonObject.getValue("refreshToken").jsonPrimitive.content
     }
+
+    private suspend fun ApplicationTestBuilder.login(): String {
+        return refreshTokenOf(postJson("/login", """{"login":"$victimEmail","password":"$oldPassword"}"""))
+    }
+
+    private suspend fun ApplicationTestBuilder.refresh(refreshToken: String): HttpResponse =
+        postJson("/refresh", """{"refreshToken":"$refreshToken"}""")
+
+    /** Runs the whole recovery flow and returns the refresh token of the session it opens. */
+    private suspend fun ApplicationTestBuilder.resetPassword(): String {
+        postJson("/auth/forgot-password", """{"email":"$victimEmail"}""")
+        val code = emailService.sentCodes().last().second
+        return refreshTokenOf(postJson("/auth/reset-password", """{"email":"$victimEmail","code":"$code","newPassword":"NewPass12"}"""))
+    }
+
+    @Test
+    fun `stolen refresh token from a real login is rejected after the password reset`() = testApplication {
+        module()
+        val stolen = login()
+
+        resetPassword()
+
+        assertEquals(HttpStatusCode.Unauthorized, refresh(stolen).status)
+    }
+
+    @Test
+    fun `token the thief rotated before the reset is rejected after it`() = testApplication {
+        module()
+        val stolen = login()
+        val rotatedByThief = refreshTokenOf(refresh(stolen))
+
+        resetPassword()
+
+        assertEquals(HttpStatusCode.Unauthorized, refresh(rotatedByThief).status, "Rotation must not outlive the reset")
+    }
+
+    @Test
+    fun `session opened by the reset carries the new version and refreshes normally`() = testApplication {
+        module()
+
+        val fromReset = resetPassword()
+
+        assertEquals(1L, JWT.decode(fromReset).getClaim("tokenVersion").asLong())
+        assertEquals(HttpStatusCode.OK, refresh(fromReset).status)
+    }
+
+    @Test
+    fun `legacy refresh token without the version claim works while the version is still 0`() = testApplication {
+        module()
+
+        val response = refresh(TestJwtFactory.legacyRefreshTokenWithoutVersion(userId = 1))
+
+        assertEquals(HttpStatusCode.OK, response.status)
+    }
+
+    @Test
+    fun `legacy refresh token without the version claim is rejected after a reset`() = testApplication {
+        module()
+        val legacy = TestJwtFactory.legacyRefreshTokenWithoutVersion(userId = 1)
+
+        resetPassword()
+
+        assertEquals(HttpStatusCode.Unauthorized, refresh(legacy).status)
+    }
+
+    @Test
+    fun `refresh token of a user that does not exist gets no new pair`() = testApplication {
+        module()
+
+        val response = refresh(JWTConfig.generateTokenPair(baseUserFor(userId = 999)).refreshToken)
+
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
+    }
+
+    @Test
+    fun `wrong reset code does not end the victim's sessions`() = testApplication {
+        module()
+        val session = login()
+        postJson("/auth/forgot-password", """{"email":"$victimEmail"}""")
+        val wrongCode = if (emailService.sentCodes().last().second == "000000") "111111" else "000000"
+
+        val rejected = postJson("/auth/reset-password", """{"email":"$victimEmail","code":"$wrongCode","newPassword":"NewPass12"}""")
+
+        assertEquals(HttpStatusCode.BadRequest, rejected.status)
+        assertEquals(HttpStatusCode.OK, refresh(session).status, "Anyone who knows the email must not be able to log the victim out")
+    }
+
+    private fun baseUserFor(userId: Int) = User(userId = userId, username = "ghost", email = "ghost@example.com", passwordHash = "", gender = null)
 }
