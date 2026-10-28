@@ -67,7 +67,9 @@ class AuthRateLimitForwardedForTest {
 
     @Test
     fun `spoofed X-Forwarded-For does not bypass the limit on register`() = testApplication {
-        module()
+        application {
+            testAuthModule(passwordResetRepo = FakePasswordResetRepository(), registrationRateLimit = limit)
+        }
         suspend fun register(attempt: Int) = client.post("/api/v1/register") {
             contentType(ContentType.Application.Json)
             header(HttpHeaders.XForwardedFor, spoofed(attempt))

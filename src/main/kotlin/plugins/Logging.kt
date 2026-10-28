@@ -4,7 +4,6 @@ import com.example.auth.EnvironmentConfig
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.calllogging.*
-import io.ktor.server.plugins.doublereceive.*
 import io.ktor.server.request.*
 import io.ktor.util.*
 import org.slf4j.event.Level
@@ -18,7 +17,7 @@ internal fun isSensitivePath(path: String): Boolean =
         path.contains("/logout") || path.contains("/auth/") || path.startsWith("/admin/")
 
 fun Application.configureLogging() {
-    install(DoubleReceive)
+    installDoubleReceiveOnce()
 
     // Capture request body in suspend context, store in attribute for later use in format lambda
     intercept(ApplicationCallPipeline.Monitoring) {

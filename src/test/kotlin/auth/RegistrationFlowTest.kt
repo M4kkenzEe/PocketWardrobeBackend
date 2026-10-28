@@ -8,6 +8,9 @@ import com.example.testutils.FakeEmailService
 import com.example.testutils.FakePasswordResetRepository
 import com.example.testutils.FakePendingEmailVerificationRepository
 import com.example.testutils.InMemoryUserRepository
+import com.example.testutils.assertSessionResponse
+import com.example.testutils.bodyJson
+import com.example.testutils.postJson
 import com.example.testutils.testAuthModule
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -43,12 +46,6 @@ class RegistrationFlowTest {
         )
     }
 
-    private suspend fun ApplicationTestBuilder.postJson(path: String, body: String): HttpResponse =
-        client.post("/api/v1$path") {
-            contentType(ContentType.Application.Json)
-            setBody(body)
-        }
-
     private suspend fun ApplicationTestBuilder.start(forEmail: String = email) =
         postJson("/auth/registration/start", """{"email":"$forEmail"}""")
 
@@ -58,6 +55,17 @@ class RegistrationFlowTest {
     private suspend fun ApplicationTestBuilder.register(verificationToken: String?, forEmail: String = email): HttpResponse {
         val tokenField = verificationToken?.let { ""","verificationToken":"$it"""" } ?: ""
         return postJson("/register", """{"email":"$forEmail","password":"$password","gender":"OTHER"$tokenField}""")
+    }
+
+    private fun registerBody(
+        verificationToken: String,
+        forEmail: String = email,
+        password: String = this.password,
+        gender: String = "OTHER",
+        username: String? = null
+    ): String {
+        val usernameField = username?.let { ""","username":"$it"""" } ?: ""
+        return """{"email":"$forEmail","password":"$password","gender":"$gender","verificationToken":"$verificationToken"$usernameField}"""
     }
 
     private fun sentCode(forEmail: String = email): String =
@@ -92,6 +100,7 @@ class RegistrationFlowTest {
         val response = start()
 
         assertEquals(HttpStatusCode.OK, response.status)
+        assertTrue(response.bodyJson().getValue("message").jsonPrimitive.content.isNotBlank())
         assertEquals(6, sentCode().length)
         assertNull(userRepo.findUserByEmail(email), "no account may exist before registration is completed")
     }
@@ -241,13 +250,55 @@ class RegistrationFlowTest {
 
         val response = register(token)
 
-        assertEquals(HttpStatusCode.Created, response.status)
-        val body = Json.parseToJsonElement(response.bodyAsText()).jsonObject
-        assertTrue(body.getValue("accessToken").jsonPrimitive.content.isNotBlank())
         val created = assertNotNull(userRepo.findUserByEmail(email))
+        response.assertSessionResponse(HttpStatusCode.Created, created.userId)
         assertTrue(created.emailVerified, "account must be created already email-verified")
         assertEquals(0, userRepo.setEmailVerifiedCalls, "verified flag must be set by the same insert, not a second write")
         assertTrue(created.isPro, "registration trial must still be granted")
+    }
+
+    @Test
+    fun `register with a username that is already taken returns 409`() = testApplication {
+        userRepo.seed(existingUser("other@example.com"))
+        module()
+        val token = verifiedToken()
+
+        val response = postJson("/register", registerBody(verificationToken = token, username = "existing"))
+
+        assertEquals(HttpStatusCode.Conflict, response.status)
+        assertNull(userRepo.findUserByEmail(email))
+    }
+
+    @Test
+    fun `register with a malformed email returns 400 even with a matching token`() = testApplication {
+        module()
+        val malformedEmail = "not-an-email"
+        val token = JWTConfig.generateRegistrationToken(malformedEmail)
+
+        val response = postJson("/register", registerBody(verificationToken = token, forEmail = malformedEmail))
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertNull(userRepo.findUserByEmail(malformedEmail))
+    }
+
+    @Test
+    fun `register with a weak password returns 400`() = testApplication {
+        module()
+
+        val response = postJson("/register", registerBody(verificationToken = verifiedToken(), password = "weakpass"))
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertNull(userRepo.findUserByEmail(email))
+    }
+
+    @Test
+    fun `register with an unknown gender returns 400`() = testApplication {
+        module()
+
+        val response = postJson("/register", registerBody(verificationToken = verifiedToken(), gender = "ROBOT"))
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertNull(userRepo.findUserByEmail(email))
     }
 
     @Test

@@ -45,18 +45,18 @@ open class EmailService {
     }
 
     open suspend fun sendEmailVerificationCode(toEmail: String, code: String): Unit = withContext(Dispatchers.IO) {
-        log.info("Sending email verification code to $toEmail")
+        log.info("Sending email verification code")
         sendHtmlEmail(
             toEmail = toEmail,
             subject = "Подтверждение email — Clothis",
             html = buildEmailVerificationHtml(code)
         )
-        log.info("Email verification code sent to $toEmail")
+        log.info("Email verification code sent")
     }
 
     private suspend fun sendHtmlEmail(toEmail: String, subject: String, html: String) = withContext(Dispatchers.IO) {
         val s = session ?: run {
-            log.warn("SMTP not configured — skipping email to $toEmail")
+            log.warn("SMTP not configured — skipping email")
             return@withContext
         }
         val message = MimeMessage(s).apply {

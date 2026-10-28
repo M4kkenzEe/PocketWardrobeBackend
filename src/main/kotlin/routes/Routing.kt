@@ -47,8 +47,8 @@ fun Application.configureRouting() {
 
         // API v1 routes
         route("/api/v1") {
-            // Authentication endpoints with rate limiting
-            rateLimit(RateLimitName("auth")) {
+            // Registration funnel: IP-based, roomier than login so CGNAT signups are not throttled
+            rateLimit(RateLimitName("registration")) {
                 post("/register") {
                     val request = call.receive<RegisterRequest>()
 
@@ -105,7 +105,10 @@ fun Application.configureRouting() {
 
                     call.respond(HttpStatusCode.OK, VerifyRegistrationResponse(verificationToken))
                 }
+            }
 
+            // Brute-force targets: strict IP-based limit
+            rateLimit(RateLimitName("auth")) {
                 post("/login") {
                     val request = call.receive<LoginRequest>()
 
@@ -131,6 +134,38 @@ fun Application.configureRouting() {
                     }
                 }
 
+                post("/auth/reset-password") {
+                    val request = call.receive<ResetPasswordRequest>()
+
+                    val user = passwordResetUseCase.resetPassword(request.email, request.code, request.newPassword)
+
+                    val tokens = JWTConfig.generateTokenPair(user)
+                    call.respond(HttpStatusCode.OK, LoginResponse(
+                        accessToken = tokens.accessToken,
+                        refreshToken = tokens.refreshToken,
+                        expiresAt = tokens.expiresAt,
+                        userId = user.userId
+                    ))
+                }
+
+                post("/auth/forgot-password") {
+                    val request = call.receive<ForgotPasswordRequest>()
+
+                    try {
+                        passwordResetUseCase.requestCode(request.email)
+                    } catch (e: Exception) {
+                        log.error("Password reset request failed", e)
+                        return@post call.respond(HttpStatusCode.InternalServerError, ErrorResponse(
+                            error = "EmailError",
+                            message = "Не удалось отправить письмо"
+                        ))
+                    }
+                    call.respond(HttpStatusCode.OK, mapOf("message" to "Если email зарегистрирован, письмо отправлено"))
+                }
+            }
+
+            // Session renewal: per user from the verified refresh token, not per IP
+            rateLimit(RateLimitName("refresh")) {
                 post("/refresh") {
                     val request = call.receive<RefreshRequest>()
                     val decoded = JWTConfig.verifyRefreshToken(request.refreshToken)
@@ -203,35 +238,6 @@ fun Application.configureRouting() {
                             message = "Invalid or expired refresh token"
                         ))
                     }
-                }
-
-                post("/auth/reset-password") {
-                    val request = call.receive<ResetPasswordRequest>()
-
-                    val user = passwordResetUseCase.resetPassword(request.email, request.code, request.newPassword)
-
-                    val tokens = JWTConfig.generateTokenPair(user)
-                    call.respond(HttpStatusCode.OK, LoginResponse(
-                        accessToken = tokens.accessToken,
-                        refreshToken = tokens.refreshToken,
-                        expiresAt = tokens.expiresAt,
-                        userId = user.userId
-                    ))
-                }
-
-                post("/auth/forgot-password") {
-                    val request = call.receive<ForgotPasswordRequest>()
-
-                    try {
-                        passwordResetUseCase.requestCode(request.email)
-                    } catch (e: Exception) {
-                        log.error("Password reset request failed", e)
-                        return@post call.respond(HttpStatusCode.InternalServerError, ErrorResponse(
-                            error = "EmailError",
-                            message = "Не удалось отправить письмо"
-                        ))
-                    }
-                    call.respond(HttpStatusCode.OK, mapOf("message" to "Если email зарегистрирован, письмо отправлено"))
                 }
             }
 

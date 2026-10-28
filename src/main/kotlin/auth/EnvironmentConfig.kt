@@ -91,6 +91,14 @@ object EnvironmentConfig {
         require(it > 0) { "RATE_LIMIT_AUTH must be positive" }
     } ?: 10
 
+    val rateLimitRefresh: Int = getEnv("RATE_LIMIT_REFRESH")?.toIntOrNull()?.also {
+        require(it > 0) { "RATE_LIMIT_REFRESH must be positive" }
+    } ?: 30
+
+    val rateLimitRegistration: Int = getEnv("RATE_LIMIT_REGISTRATION")?.toIntOrNull()?.also {
+        require(it > 0) { "RATE_LIMIT_REGISTRATION must be positive" }
+    } ?: 30
+
     val rateLimitUpload: Int = getEnv("RATE_LIMIT_UPLOAD")?.toIntOrNull()?.also {
         require(it > 0) { "RATE_LIMIT_UPLOAD must be positive" }
     } ?: 20

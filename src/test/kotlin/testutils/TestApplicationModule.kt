@@ -38,7 +38,10 @@ import org.koin.ktor.plugin.Koin
 import plugins.ErrorResponse
 import plugins.configureErrorHandling
 import plugins.configureForwardedHeaders
+import plugins.installDoubleReceiveOnce
 import plugins.registerAuthRateLimit
+import plugins.registerRefreshRateLimit
+import plugins.registerRegistrationRateLimit
 import kotlin.time.Duration.Companion.minutes
 import io.ktor.client.HttpClient as KtorHttpClient
 
@@ -124,7 +127,8 @@ fun Application.testClothesModule(
  * Test module for auth routes. Calls the production [configureRouting] so tests
  * cover the real handler, not a copy of it. EmailService is faked so tests never
  * open an SMTP connection, even when .env carries real SMTP credentials.
- * Forwarded headers and the auth bucket key are the production ones; only [authRateLimit] differs.
+ * Forwarded headers and the auth, refresh and registration buckets are registered by the production
+ * functions; only the limits differ (huge by default, pass the real values to test the real boundaries).
  *
  * Requires: .env with JWT_SECRET, DB_URL, DB_USER, DB_PASSWORD, DB_NAME,
  * REMOVE_BG_SERVICE_URL, ANALYSIS_SERVICE_URL (same requirement as ConfigValidatorTest).
@@ -136,7 +140,9 @@ fun Application.testAuthModule(
     emailService: EmailService = FakeEmailService(),
     emailVerificationRepo: EmailVerificationRepository = FakeEmailVerificationRepository(),
     pendingEmailVerificationRepo: PendingEmailVerificationRepository = FakePendingEmailVerificationRepository(),
-    authRateLimit: Int = 10_000
+    authRateLimit: Int = 10_000,
+    refreshRateLimit: Int = 10_000,
+    registrationRateLimit: Int = 10_000
 ) {
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true })
@@ -144,9 +150,12 @@ fun Application.testAuthModule(
 
     configureErrorHandling()
     configureForwardedHeaders()
+    installDoubleReceiveOnce()
 
     install(RateLimit) {
         registerAuthRateLimit(authRateLimit)
+        registerRefreshRateLimit(refreshRateLimit)
+        registerRegistrationRateLimit(registrationRateLimit)
         register(RateLimitName("default")) {
             rateLimiter(limit = 10_000, refillPeriod = 1.minutes)
         }

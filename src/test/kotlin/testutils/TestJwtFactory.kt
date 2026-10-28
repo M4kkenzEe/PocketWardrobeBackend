@@ -35,4 +35,15 @@ object TestJwtFactory {
         .withExpiresAt(Date(System.currentTimeMillis() + 3_600_000L))
         .withJWTId(UUID.randomUUID().toString())
         .sign(Algorithm.HMAC256(EnvironmentConfig.jwtSecret))
+
+    /** Correctly signed refresh token (real JWT settings) whose expiry has already passed. */
+    fun expiredRefreshToken(userId: Int): String = JWT.create()
+        .withAudience(EnvironmentConfig.jwtAudience)
+        .withIssuer(EnvironmentConfig.jwtIssuer)
+        .withClaim("userId", userId)
+        .withClaim("type", "refresh")
+        .withClaim("tokenVersion", 0L)
+        .withExpiresAt(Date(System.currentTimeMillis() - 60_000L))
+        .withJWTId(UUID.randomUUID().toString())
+        .sign(Algorithm.HMAC256(EnvironmentConfig.jwtSecret))
 }
