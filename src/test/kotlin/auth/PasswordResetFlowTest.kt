@@ -5,6 +5,9 @@ import com.example.database.data.model.User
 import com.example.testutils.FakeEmailService
 import com.example.testutils.FakePasswordResetRepository
 import com.example.testutils.InMemoryUserRepository
+import com.example.testutils.assertSessionResponse
+import com.example.testutils.bodyJson
+import com.example.testutils.postJson
 import com.example.testutils.testAuthModule
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -33,12 +36,6 @@ class PasswordResetFlowTest {
         testAuthModule(passwordResetRepo = resetRepo, userRepo = userRepo, emailService = emailService)
     }
 
-    private suspend fun ApplicationTestBuilder.postJson(path: String, body: String): HttpResponse =
-        client.post("/api/v1$path") {
-            contentType(ContentType.Application.Json)
-            setBody(body)
-        }
-
     private suspend fun ApplicationTestBuilder.forgot(email: String = storedEmail) =
         postJson("/auth/forgot-password", """{"email":"$email"}""")
 
@@ -53,16 +50,29 @@ class PasswordResetFlowTest {
     }
 
     @Test
-    fun `forgot then reset with the emailed code returns a session and the new password logs in`() = testApplication {
+    fun `successful reset answers 200 with a message and no session`() = testApplication {
         module()
+        forgot()
 
-        assertEquals(HttpStatusCode.OK, forgot().status)
         val response = reset(lastSentCode())
 
         assertEquals(HttpStatusCode.OK, response.status)
-        assertTrue(response.bodyAsText().contains("accessToken"))
-        val login = postJson("/login", """{"login":"$storedEmail","password":"$newPassword"}""")
-        assertEquals(HttpStatusCode.OK, login.status)
+        val body = response.bodyJson()
+        assertTrue(body.getValue("message").jsonPrimitive.content.isNotBlank(), "message")
+        assertEquals(setOf("message"), body.keys, "no accessToken, refreshToken, expiresAt or userId")
+    }
+
+    @Test
+    fun `after the reset the old password is rejected and the new one logs in`() = testApplication {
+        module()
+        forgot()
+        reset(lastSentCode())
+
+        val withOldPassword = postJson("/login", """{"login":"$storedEmail","password":"OldPass12"}""")
+        val withNewPassword = postJson("/login", """{"login":"$storedEmail","password":"$newPassword"}""")
+
+        assertEquals(HttpStatusCode.Unauthorized, withOldPassword.status)
+        withNewPassword.assertSessionResponse(HttpStatusCode.OK, expectedUserId = 1)
     }
 
     @Test

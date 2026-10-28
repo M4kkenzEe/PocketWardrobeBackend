@@ -127,8 +127,8 @@ class AuthRateLimitTest {
         val stolen = postJson("/login", """{"login":"$email","password":"OldPass12"}""").bodyJson().getValue("refreshToken").jsonPrimitive.content
         postJson("/auth/forgot-password", """{"email":"$email"}""")
         val code = emailService.sentCodes().last().second
-        val reset = postJson("/auth/reset-password", """{"email":"$email","code":"$code","newPassword":"NewPass12"}""")
-        val fresh = reset.bodyJson().getValue("refreshToken").jsonPrimitive.content
+        postJson("/auth/reset-password", """{"email":"$email","code":"$code","newPassword":"NewPass12"}""")
+        val fresh = postJson("/login", """{"login":"$email","password":"NewPass12"}""").bodyJson().getValue("refreshToken").jsonPrimitive.content
         repeat(refreshLimit) { assertEquals(HttpStatusCode.Unauthorized, postRefresh(stolen).status) }
         assertEquals(HttpStatusCode.TooManyRequests, postRefresh(stolen).status, "precondition: the thief drained the old-version bucket")
 
