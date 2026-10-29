@@ -50,6 +50,15 @@ fun Application.configureRateLimiting() {
             }
         }
 
+        // 3a. Rate limit for look drafts around an item — generous, drafts are reused between taps
+        register(RateLimitName("drafts")) {
+            rateLimiter(limit = EnvironmentConfig.rateLimitDrafts, refillPeriod = 1.hours)
+            requestKey { call ->
+                val principal = call.principal<UserPrincipal>()
+                principal?.userId?.toString() ?: call.request.origin.remoteHost
+            }
+        }
+
         // 4. Rate limit for affiliate link generation
         register(RateLimitName("affiliate")) {
             rateLimiter(limit = EnvironmentConfig.rateLimitAffiliate, refillPeriod = 1.minutes)
@@ -77,6 +86,7 @@ fun Application.configureRateLimiting() {
     log.info("  - Registration endpoints: ${EnvironmentConfig.rateLimitRegistration} req/min per IP")
     log.info("  - Upload endpoints: ${EnvironmentConfig.rateLimitUpload} req/min per user")
     log.info("  - Generate endpoint: ${EnvironmentConfig.rateLimitGenerate} req/hour per user")
+    log.info("  - Drafts endpoint: ${EnvironmentConfig.rateLimitDrafts} req/hour per user")
     log.info("  - Affiliate endpoint: ${EnvironmentConfig.rateLimitAffiliate} req/min per user")
     log.info("  - Default endpoints: ${EnvironmentConfig.rateLimitDefault} req/min per user")
 }

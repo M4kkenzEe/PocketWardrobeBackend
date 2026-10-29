@@ -247,7 +247,7 @@ fun Application.looks() {
                         }
                     }
 
-                    rateLimit(RateLimitName("generate")) {
+                    rateLimit(RateLimitName("drafts")) {
                         post("/drafts") {
                             val userId = call.principal<UserPrincipal>()?.userId
                                 ?: throw IllegalStateException("User not authenticated")

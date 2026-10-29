@@ -27,7 +27,7 @@ class GenerateDraftLooksUseCase(
     private val lookRenderer: LookRenderer
 ) {
     suspend fun generate(userId: Int, anchorClotheId: Int): DraftLooksResult {
-        // Checked before calling RecommendationService: it does not know about the caller's ownership (IDOR).
+        // The backend is the authorization boundary: ownership is checked here, not delegated to RecommendationService (IDOR).
         if (!userClotheRepository.isClotheInUserWardrobe(userId, anchorClotheId)) {
             return DraftLooksResult.Rejected(AnchorRejection.ClotheNotFound)
         }

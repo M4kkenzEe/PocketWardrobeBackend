@@ -231,6 +231,7 @@ fun Application.testLooksEmailVerificationModule(
         register(RateLimitName("default")) { rateLimiter(limit = 10_000, refillPeriod = 1.minutes) }
         register(RateLimitName("upload")) { rateLimiter(limit = 10_000, refillPeriod = 1.minutes) }
         register(RateLimitName("generate")) { rateLimiter(limit = 10_000, refillPeriod = 1.minutes) }
+        register(RateLimitName("drafts")) { rateLimiter(limit = 10_000, refillPeriod = 1.minutes) }
     }
     installTestJwtAuth()
     install(Koin) {
@@ -261,7 +262,9 @@ fun Application.testLookDraftsModule(
     recommendation: FakeRecommendationService,
     ownedClotheIds: Set<Int>,
     looksDirectory: java.io.File,
-    sharedLooks: SharedLookRepository = OwnerCheckingSharedLookRepository(looks)
+    sharedLooks: SharedLookRepository = OwnerCheckingSharedLookRepository(looks),
+    draftsRateLimit: Int = 10_000,
+    generateRateLimit: Int = 10_000
 ) {
     // Same Json as production (json() defaults: encodeDefaults = true), so default fields like isDraft are serialized.
     install(ContentNegotiation) {
@@ -271,7 +274,8 @@ fun Application.testLookDraftsModule(
     install(RateLimit) {
         register(RateLimitName("default")) { rateLimiter(limit = 10_000, refillPeriod = 1.minutes) }
         register(RateLimitName("upload")) { rateLimiter(limit = 10_000, refillPeriod = 1.minutes) }
-        register(RateLimitName("generate")) { rateLimiter(limit = 10_000, refillPeriod = 1.minutes) }
+        register(RateLimitName("generate")) { rateLimiter(limit = generateRateLimit, refillPeriod = 1.minutes) }
+        register(RateLimitName("drafts")) { rateLimiter(limit = draftsRateLimit, refillPeriod = 1.minutes) }
     }
     installTestJwtAuth()
     install(Koin) {

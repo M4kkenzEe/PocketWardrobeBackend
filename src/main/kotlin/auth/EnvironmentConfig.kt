@@ -111,6 +111,11 @@ object EnvironmentConfig {
         require(it > 0) { "RATE_LIMIT_GENERATE must be positive" }
     } ?: 5
 
+    // Separate from generate: opening an item screen must not burn the budget of the main look generation.
+    val rateLimitDrafts: Int = getEnv("RATE_LIMIT_DRAFTS")?.toIntOrNull()?.also {
+        require(it > 0) { "RATE_LIMIT_DRAFTS must be positive" }
+    } ?: 30
+
     val rateLimitAffiliate: Int = getEnv("RATE_LIMIT_AFFILIATE")?.toIntOrNull()?.also {
         require(it > 0) { "RATE_LIMIT_AFFILIATE must be positive" }
     } ?: 60

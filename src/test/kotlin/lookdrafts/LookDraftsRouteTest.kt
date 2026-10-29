@@ -2,6 +2,7 @@ package com.example.lookdrafts
 
 import com.example.testutils.FakeRecommendationService
 import com.example.testutils.InMemoryLooks
+import com.example.testutils.OwnerCheckingSharedLookRepository
 import com.example.testutils.TestJwtFactory
 import com.example.testutils.testLookDraftsModule
 import io.ktor.client.HttpClient
@@ -40,9 +41,17 @@ class LookDraftsRouteTest {
         looksDirectory.deleteRecursively()
     }
 
-    private fun withDraftsApp(block: suspend ApplicationTestBuilder.() -> Unit) = testApplication {
+    private val sharedLooks = OwnerCheckingSharedLookRepository(looks)
+
+    private fun withDraftsApp(
+        draftsRateLimit: Int = 10_000,
+        generateRateLimit: Int = 10_000,
+        block: suspend ApplicationTestBuilder.() -> Unit
+    ) = testApplication {
         application {
-            testLookDraftsModule(looks, recommendation, ownedClotheIds, looksDirectory)
+            testLookDraftsModule(
+                looks, recommendation, ownedClotheIds, looksDirectory, sharedLooks, draftsRateLimit, generateRateLimit
+            )
         }
         block()
     }
@@ -297,6 +306,21 @@ class LookDraftsRouteTest {
         assertEquals(false, response.json().getValue("isDraft").jsonPrimitive.boolean)
     }
 
+    // Rate limit
+
+    @Test
+    fun `exhausting the drafts bucket gets 429 and does not block looks generate`() = withDraftsApp(
+        draftsRateLimit = 2,
+        generateRateLimit = 1
+    ) {
+        twoAnchorLooks()
+        repeat(2) { assertEquals(HttpStatusCode.OK, client.postDrafts().status) }
+
+        assertEquals(HttpStatusCode.TooManyRequests, client.postDrafts().status)
+        // No GenerateLookUseCase in this module, so generate itself answers 503; the point is that it is not 429.
+        assertNotEquals(HttpStatusCode.TooManyRequests, client.authorized(HttpMethod.Get, "/api/v1/looks/generate").status)
+    }
+
     // POST /looks/{id}/save
 
     @Test
@@ -367,6 +391,7 @@ class LookDraftsRouteTest {
 
         assertNotEquals(HttpStatusCode.Created, response.status)
         assertTrue(response.status.value in 400..499)
+        assertEquals(emptyList(), sharedLooks.createdTokens)
     }
 
     @Test

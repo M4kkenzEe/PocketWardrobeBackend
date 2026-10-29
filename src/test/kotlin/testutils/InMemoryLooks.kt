@@ -52,10 +52,6 @@ class InMemoryLooks : LookRepository, LookDraftRepository, UserLookRepository {
 
     fun urlOf(lookId: Int): String = looks.getValue(lookId).url
 
-    fun clearUrl(lookId: Int) {
-        looks.getValue(lookId).url = ""
-    }
-
     private fun isSaved(userId: Int, lookId: Int) =
         userLooks.any { it.userId == userId && it.lookId == lookId && !it.isDeleted }
 
