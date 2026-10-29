@@ -10,4 +10,5 @@ interface LookRepository {
     suspend fun getLookById(lookId: Int, userId: Int): Look
     suspend fun getLookList(userId: Int): List<LookPreview>
     suspend fun updateLookUrl(lookId: Int, url: String)
+    suspend fun getSavedClotheIdsByLook(userId: Int): Map<Int, Set<Int>>
 }

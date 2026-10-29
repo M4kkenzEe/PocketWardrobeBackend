@@ -56,15 +56,31 @@ class LookRepositoryImpl : LookRepository {
     }
 
     override suspend fun getLookById(lookId: Int, userId: Int): Look = suspendTransaction {
-        // Check if user has access to this look (and it's not deleted)
-        val userLook = UserLookDao.find {
+        val isSaved = UserLookDao.find {
             (UserLookTable.userId eq userId) and
             (UserLookTable.lookId eq lookId) and
             (UserLookTable.isDeleted eq false)
-        }.firstOrNull() ?: throw IllegalArgumentException("Look not found or not accessible")
+        }.any()
+        val isUnsavedDraft = !isSaved && LookDraftDao.find {
+            (LookDraftTable.userId eq userId) and
+            (LookDraftTable.lookId eq lookId) and
+            LookDraftTable.savedAt.isNull()
+        }.any()
+        if (!isSaved && !isUnsavedDraft) throw IllegalArgumentException("Look not found or not accessible")
 
-        LookDao.findById(lookId)?.let(::daoToModel)
+        LookDao.findById(lookId)?.let { daoToModel(it).copy(isDraft = !isSaved) }
             ?: throw IllegalArgumentException("Look not found")
+    }
+
+    override suspend fun getSavedClotheIdsByLook(userId: Int): Map<Int, Set<Int>> = suspendTransaction {
+        val lookIds = UserLookDao.find {
+            (UserLookTable.userId eq userId) and (UserLookTable.isDeleted eq false)
+        }.map { it.lookId.value }
+        if (lookIds.isEmpty()) return@suspendTransaction emptyMap()
+
+        LookItemDao.find { LookItemTable.lookId inList lookIds }
+            .groupBy({ it.lookId.value }, { it.clotheId.value })
+            .mapValues { (_, clotheIds) -> clotheIds.toSet() }
     }
 
     override suspend fun getLookList(userId: Int): List<LookPreview> = suspendTransaction {

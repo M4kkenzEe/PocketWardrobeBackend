@@ -7,15 +7,22 @@ import com.example.database.data.model.ShareLinkResponse
 import com.example.database.domain.repository.LookRepository
 import com.example.database.domain.repository.SharedLookRepository
 import com.example.database.domain.repository.UserLookRepository
+import com.example.services.AnchorRejection
+import com.example.usecases.DraftLooksResult
+import com.example.usecases.GenerateDraftLooksUseCase
 import com.example.usecases.GenerateLookUseCase
+import com.example.usecases.LookServiceUnavailableException
 import com.example.usecases.QuotaExceededException
 import com.example.usecases.QuotaUseCase
+import com.example.usecases.SaveLookDraftUseCase
+import plugins.KeepResponseBody
 import kotlinx.serialization.Serializable
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.http.content.*
+import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.ratelimit.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -31,12 +38,55 @@ import java.util.*
 @Serializable
 data class GenerateLookRequest(val occasion: String? = null)
 
+@Serializable
+data class DraftLooksRequest(val anchorClotheId: Int)
+
+@Serializable
+data class DraftLookResponse(val lookId: Int, val url: String)
+
+@Serializable
+data class DraftLooksResponse(val looks: List<DraftLookResponse>, val allSaved: Boolean)
+
+@Serializable
+data class DraftLooksErrorResponse(val error: String)
+
+@Serializable
+data class NotEnoughForAnchorResponse(val error: String, val missing: List<String>)
+
+@Serializable
+data class SavedLookResponse(val lookId: Int)
+
+// Ktor wraps a body that fails deserialization in BadRequestException; a missing body is ContentTransformationException.
+private suspend fun ApplicationCall.receiveDraftLooksRequest(): DraftLooksRequest? =
+    try {
+        receive<DraftLooksRequest>()
+    } catch (_: BadRequestException) {
+        null
+    } catch (_: ContentTransformationException) {
+        null
+    }
+
+private suspend fun ApplicationCall.respondNotFound(error: String) {
+    attributes.put(KeepResponseBody, Unit)
+    respond(HttpStatusCode.NotFound, DraftLooksErrorResponse(error))
+}
+
+private suspend fun ApplicationCall.respondRejection(rejection: AnchorRejection) = when (rejection) {
+    AnchorRejection.ClotheNotFound -> respondNotFound("clothe_not_found")
+    is AnchorRejection.NotEnoughForAnchor ->
+        respond(HttpStatusCode.UnprocessableEntity, NotEnoughForAnchorResponse("not_enough_for_anchor", rejection.missing))
+    AnchorRejection.UnsupportedCategory ->
+        respond(HttpStatusCode.UnprocessableEntity, DraftLooksErrorResponse("unsupported_category"))
+}
+
 fun Application.looks() {
     val lookRepository: LookRepository by inject()
     val sharedLookRepository: SharedLookRepository by inject()
     val userLookRepository: UserLookRepository by inject()
     val generateLookUseCase: GenerateLookUseCase by inject()
     val quotaUseCase: QuotaUseCase by inject()
+    val generateDraftLooksUseCase: GenerateDraftLooksUseCase by inject()
+    val saveLookDraftUseCase: SaveLookDraftUseCase by inject()
     routing {
         staticFiles("/looks", File(EnvironmentConfig.looksDirectory))
         authenticate {
@@ -197,7 +247,46 @@ fun Application.looks() {
                         }
                     }
 
+                    rateLimit(RateLimitName("generate")) {
+                        post("/drafts") {
+                            val userId = call.principal<UserPrincipal>()?.userId
+                                ?: throw IllegalStateException("User not authenticated")
+                            val request = call.receiveDraftLooksRequest()
+                                ?: return@post call.respond(HttpStatusCode.BadRequest, DraftLooksErrorResponse("invalid_request"))
+
+                            try {
+                                when (val result = generateDraftLooksUseCase.generate(userId, request.anchorClotheId)) {
+                                    is DraftLooksResult.Rejected -> call.respondRejection(result.rejection)
+                                    is DraftLooksResult.Generated -> call.respond(
+                                        HttpStatusCode.OK,
+                                        DraftLooksResponse(
+                                            looks = result.looks.map { DraftLookResponse(it.lookId, it.url) },
+                                            allSaved = result.allSaved
+                                        )
+                                    )
+                                }
+                            } catch (e: LookServiceUnavailableException) {
+                                call.application.log.warn("Draft looks generation failed: ${e.message}")
+                                call.respond(
+                                    HttpStatusCode.ServiceUnavailable,
+                                    DraftLooksErrorResponse("AI service unavailable")
+                                )
+                            }
+                        }
+                    }
+
                     rateLimit(RateLimitName("default")) {
+                        post("/{lookId}/save") {
+                            val userId = call.principal<UserPrincipal>()?.userId
+                                ?: throw IllegalStateException("User not authenticated")
+                            val lookId = call.parameters["lookId"]?.toIntOrNull()
+                                ?: return@post call.respond(HttpStatusCode.BadRequest, "Invalid lookId")
+
+                            val savedLookId = saveLookDraftUseCase.save(userId, lookId)
+                                ?: return@post call.respondNotFound("look_not_found")
+                            call.respond(HttpStatusCode.OK, SavedLookResponse(savedLookId))
+                        }
+
                         get("/byId/{lookId}") {
                             val userId = call.principal<UserPrincipal>()?.userId
                                 ?: throw IllegalStateException("User not authenticated")

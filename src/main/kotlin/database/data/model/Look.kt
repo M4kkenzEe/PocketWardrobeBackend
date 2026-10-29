@@ -12,7 +12,8 @@ data class Look(
     val id: Int? = null,
     val name: String,
     val lookItems: List<LookItem>,
-    val url: String
+    val url: String,
+    val isDraft: Boolean = false
 )
 
 object LookTable : IntIdTable("looks") {

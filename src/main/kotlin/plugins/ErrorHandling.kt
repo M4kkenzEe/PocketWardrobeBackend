@@ -7,6 +7,7 @@ import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.response.*
+import io.ktor.util.AttributeKey
 import kotlinx.serialization.Serializable
 
 /**
@@ -98,8 +99,10 @@ fun Application.configureErrorHandling() {
             )
         }
 
-        // Handle 404 Not Found
+        // Handle 404 Not Found. A route that sets [KeepResponseBody] (e.g. {"error": "look_not_found"})
+        // keeps its own body: clients branch on that error code.
         status(HttpStatusCode.NotFound) { call, status ->
+            if (call.attributes.contains(KeepResponseBody)) return@status
             call.respond(
                 status,
                 ErrorResponse(
@@ -145,6 +148,9 @@ fun Application.configureErrorHandling() {
 
     log.info("✓ Error handling configured with StatusPages plugin")
 }
+
+/** Set on a call whose 404 body is part of the API contract and must not be replaced by the generic one. */
+val KeepResponseBody = AttributeKey<Unit>("KeepResponseBody")
 
 @Serializable
 data class ErrorResponse(

@@ -279,11 +279,16 @@ class FakeClotheRepository : ClotheRepository {
     }
 }
 
-class FakeUserClotheRepository(private val clotheCount: Int = 0, private val isPro: Boolean = false) : UserClotheRepository {
+class FakeUserClotheRepository(
+    private val clotheCount: Int = 0,
+    private val isPro: Boolean = false,
+    private val ownedClotheIds: Set<Int>? = null
+) : UserClotheRepository {
     override suspend fun addClotheToUser(userId: Int, clotheId: Int): Boolean = true
     override suspend fun removeClotheFromUser(userId: Int, clotheId: Int): Boolean = true
     override suspend fun restoreClotheForUser(userId: Int, clotheId: Int): Boolean = true
-    override suspend fun isClotheInUserWardrobe(userId: Int, clotheId: Int): Boolean = true
+    override suspend fun isClotheInUserWardrobe(userId: Int, clotheId: Int): Boolean =
+        ownedClotheIds?.contains(clotheId) ?: true
     override suspend fun addClotheById(userId: Int, clotheId: Int): Boolean = true
     override suspend fun countByUserId(userId: Int): Int = clotheCount
     override suspend fun addClotheToUserAtomic(userId: Int, clotheId: Int, isPro: Boolean, limit: Int): AddClotheResult =
@@ -320,6 +325,7 @@ class FakeLookRepository : LookRepository {
     override suspend fun getLookById(lookId: Int, userId: Int): Look = error("Not implemented in fake")
     override suspend fun getLookList(userId: Int): List<LookPreview> = emptyList()
     override suspend fun updateLookUrl(lookId: Int, url: String) {}
+    override suspend fun getSavedClotheIdsByLook(userId: Int): Map<Int, Set<Int>> = emptyMap()
 }
 
 class FakeSharedLookRepository : SharedLookRepository {

@@ -5,6 +5,10 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.example.auth.model.UserPrincipal
 import com.example.database.domain.repository.ClotheRepository
 import com.example.database.domain.repository.EmailVerificationRepository
+import com.example.database.domain.repository.LookDraftRepository
+import com.example.database.domain.repository.LookRepository
+import com.example.database.domain.repository.SharedLookRepository
+import com.example.database.domain.repository.UserLookRepository
 import com.example.database.domain.repository.PasswordResetRepository
 import com.example.database.domain.repository.PendingEmailVerificationRepository
 import com.example.database.domain.repository.RevokedTokenRepository
@@ -20,6 +24,9 @@ import com.example.services.RemoveBgService
 import com.example.usecases.AdminUserUseCase
 import com.example.usecases.ClotheUseCase
 import com.example.usecases.EmailVerificationUseCase
+import com.example.usecases.GenerateDraftLooksUseCase
+import com.example.usecases.LookRenderer
+import com.example.usecases.SaveLookDraftUseCase
 import com.example.usecases.PasswordResetUseCase
 import com.example.usecases.RegistrationUseCase
 import io.ktor.client.engine.cio.*
@@ -233,12 +240,51 @@ fun Application.testLooksEmailVerificationModule(
             single<com.example.database.domain.repository.SharedLookRepository> { FakeSharedLookRepository() }
             single<com.example.database.domain.repository.UserLookRepository> { FakeUserLookRepository() }
             single {
+                val generateLookService = com.example.services.GenerateLookService(KtorHttpClient(CIO), "http://stub-never-called")
                 com.example.usecases.GenerateLookUseCase(
-                    generateLookService = com.example.services.GenerateLookService(KtorHttpClient(CIO), "http://stub-never-called"),
-                    lookRepository = FakeLookRepository()
+                    generateLookService = generateLookService,
+                    lookRenderer = com.example.usecases.LookRenderer(generateLookService, FakeLookRepository())
                 )
             }
             single { com.example.usecases.QuotaUseCase(userRepository = userRepo) }
+        })
+    }
+    looks()
+}
+
+/**
+ * Looks routes over in-memory looks and a mocked RecommendationService. Rendered PNGs go to [looksDirectory]
+ * (a temp dir in tests), never to the project's looks/ folder.
+ */
+fun Application.testLookDraftsModule(
+    looks: InMemoryLooks,
+    recommendation: FakeRecommendationService,
+    ownedClotheIds: Set<Int>,
+    looksDirectory: java.io.File,
+    sharedLooks: SharedLookRepository = OwnerCheckingSharedLookRepository(looks)
+) {
+    // Same Json as production (json() defaults: encodeDefaults = true), so default fields like isDraft are serialized.
+    install(ContentNegotiation) {
+        json()
+    }
+    configureErrorHandling()
+    install(RateLimit) {
+        register(RateLimitName("default")) { rateLimiter(limit = 10_000, refillPeriod = 1.minutes) }
+        register(RateLimitName("upload")) { rateLimiter(limit = 10_000, refillPeriod = 1.minutes) }
+        register(RateLimitName("generate")) { rateLimiter(limit = 10_000, refillPeriod = 1.minutes) }
+    }
+    installTestJwtAuth()
+    install(Koin) {
+        modules(module {
+            single<LookRepository> { looks }
+            single<LookDraftRepository> { looks }
+            single<UserLookRepository> { looks }
+            single<SharedLookRepository> { sharedLooks }
+            single<UserClotheRepository> { FakeUserClotheRepository(ownedClotheIds = ownedClotheIds) }
+            single { recommendation.service }
+            single { LookRenderer(get(), get(), looksDirectory) }
+            single { GenerateDraftLooksUseCase(get(), get(), get(), get()) }
+            single { SaveLookDraftUseCase(get(), get(), get()) }
         })
     }
     looks()
