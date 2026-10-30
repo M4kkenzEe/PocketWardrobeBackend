@@ -2,7 +2,7 @@
   "relation": ["delegate_permission/common.handle_all_urls"],
   "target": {
     "namespace": "android_app",
-    "package_name": "com.ownstd.project",
+    "package_name": "com.ownstd.clothis",
     "sha256_cert_fingerprints": [
       "00:C9:D0:64:F5:DD:0E:98:BC:A1:E3:3A:D6:26:97:E7:D8:A1:A1:A4:3C:7B:C8:E3:E9:A0:31:F2:B3:1D:7C:4C",
       "A1:C6:F5:F4:B7:4D:E1:52:C7:DC:38:89:24:93:B6:7F:D6:D6:82:68:D8:B9:D7:54:04:42:B6:C6:34:98:79:7D"
