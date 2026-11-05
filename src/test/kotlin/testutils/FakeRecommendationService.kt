@@ -20,6 +20,9 @@ class FakeRecommendationService(private val looks: InMemoryLooks) {
 
     val materializeDraftFlags = CopyOnWriteArrayList<Boolean>()
 
+    var generateResponse = HttpStatusCode.OK to """{"looks":[]}"""
+    var generateException: Exception? = null
+
     var anchorClotheSets: List<List<Int>> = emptyList()
     var allSaved = false
     var generateFromItemFailure: Pair<HttpStatusCode, String>? = null
@@ -31,6 +34,10 @@ class FakeRecommendationService(private val looks: InMemoryLooks) {
         requestedPaths += path
         if (isUnreachable) throw IOException("RecommendationService is down")
         when {
+            path.startsWith("/generate/") -> {
+                generateException?.let { throw it }
+                respond(generateResponse.second, generateResponse.first, jsonHeaders)
+            }
             path == "/generate-from-item" -> respondGenerateFromItem()
             path == "/materialize-look" -> respondMaterialize(request.body)
             path.endsWith("/render") -> respondRender()

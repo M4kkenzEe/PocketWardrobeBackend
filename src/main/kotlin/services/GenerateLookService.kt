@@ -62,6 +62,11 @@ sealed interface AnchorRejection {
 
 class AnchorRejectedException(val rejection: AnchorRejection) : RuntimeException(rejection.toString())
 
+class NotEnoughClothesException(val missing: List<String>) : RuntimeException("not_enough_clothes")
+
+@Serializable
+private data class GenerateLookError(val error: String, val missing: List<String> = emptyList())
+
 class GenerateLookService(
     private val client: HttpClient,
     private val generateLookServiceUrl: String
@@ -74,13 +79,17 @@ class GenerateLookService(
             val body = response.bodyAsText()
             if (response.status.isSuccess()) {
                 Result.success(json.decodeFromString<GenerateLookResponse>(body))
-            } else if (response.status.value in 400..499) {
-                val errorKey = runCatching {
-                    json.parseToJsonElement(body).jsonObject["error"]?.jsonPrimitive?.content
-                }.getOrNull() ?: body
-                Result.failure(IllegalArgumentException(errorKey))
             } else {
-                Result.failure(IllegalStateException("Look generation service error ${response.status.value}: $body"))
+                val error = runCatching { json.decodeFromString<GenerateLookError>(body) }.getOrNull()
+                if (response.status == HttpStatusCode.BadRequest && error?.error == "not_enough_clothes") {
+                    val categories = listOf("top", "bottom", "shoes")
+                    val missing = if (error.missing.all { it in categories }) {
+                        categories.filter { it in error.missing }
+                    } else emptyList()
+                    Result.failure(NotEnoughClothesException(missing))
+                } else {
+                    Result.failure(IllegalStateException("Look generation service error ${response.status.value}"))
+                }
             }
         } catch (e: Exception) {
             Result.failure(e)

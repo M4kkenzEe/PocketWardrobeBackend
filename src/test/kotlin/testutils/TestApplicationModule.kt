@@ -264,7 +264,8 @@ fun Application.testLookDraftsModule(
     looksDirectory: java.io.File,
     sharedLooks: SharedLookRepository = OwnerCheckingSharedLookRepository(looks),
     draftsRateLimit: Int = 10_000,
-    generateRateLimit: Int = 10_000
+    generateRateLimit: Int = 10_000,
+    enableOrdinaryGeneration: Boolean = false
 ) {
     // Same Json as production (json() defaults: encodeDefaults = true), so default fields like isDraft are serialized.
     install(ContentNegotiation) {
@@ -286,6 +287,10 @@ fun Application.testLookDraftsModule(
             single<SharedLookRepository> { sharedLooks }
             single<UserClotheRepository> { FakeUserClotheRepository(ownedClotheIds = ownedClotheIds) }
             single { recommendation.service }
+            if (enableOrdinaryGeneration) {
+                single { com.example.usecases.GenerateLookUseCase(get(), get()) }
+                single { com.example.usecases.QuotaUseCase(FakeUserRepository(isPro = true)) }
+            }
             single { LookRenderer(get(), get(), looksDirectory) }
             single { GenerateDraftLooksUseCase(get(), get(), get(), get()) }
             single { SaveLookDraftUseCase(get(), get(), get()) }

@@ -7,6 +7,7 @@ import com.example.database.data.model.ShareLinkResponse
 import com.example.database.domain.repository.LookRepository
 import com.example.database.domain.repository.SharedLookRepository
 import com.example.database.domain.repository.UserLookRepository
+import com.example.services.NotEnoughClothesException
 import com.example.services.AnchorRejection
 import com.example.usecases.DraftLooksResult
 import com.example.usecases.GenerateDraftLooksUseCase
@@ -37,6 +38,9 @@ import java.util.*
 
 @Serializable
 data class GenerateLookRequest(val occasion: String? = null)
+
+@Serializable
+data class NotEnoughClothesResponse(val error: String, val missing: List<String>)
 
 @Serializable
 data class DraftLooksRequest(val anchorClotheId: Int)
@@ -200,10 +204,10 @@ fun Application.looks() {
                             try {
                                 val lookIds = generateLookUseCase.generateAndSaveLooks(userId)
                                 call.respond(HttpStatusCode.OK, mapOf("look_ids" to lookIds))
-                            } catch (e: IllegalArgumentException) {
+                            } catch (e: NotEnoughClothesException) {
                                 call.respond(
                                     HttpStatusCode.BadRequest,
-                                    mapOf("error" to "not_enough_clothes")
+                                    NotEnoughClothesResponse("not_enough_clothes", e.missing)
                                 )
                             } catch (e: Exception) {
                                 call.respond(
@@ -233,10 +237,10 @@ fun Application.looks() {
                                     HttpStatusCode(402, "Payment Required"),
                                     mapOf("error" to "DAILY_LIMIT_REACHED", "limit" to e.limit, "used" to e.used, "reset_at" to e.resetAt)
                                 )
-                            } catch (e: IllegalArgumentException) {
+                            } catch (e: NotEnoughClothesException) {
                                 call.respond(
                                     HttpStatusCode.BadRequest,
-                                    mapOf("error" to "not_enough_clothes")
+                                    NotEnoughClothesResponse("not_enough_clothes", e.missing)
                                 )
                             } catch (e: Exception) {
                                 call.respond(
